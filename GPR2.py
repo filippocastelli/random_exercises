@@ -101,13 +101,19 @@ class GPR(object):
         return sorted(history)[-1], np.mat(history)
 #%%
         
-def create_case(kernel, R=0):
+def create_case(kernel, R=0, title = False):
     gaus = GPR(x, y, kernel, R=R)
     y_pred = np.vectorize(gaus.predict)(x_guess)
     
-    plt.plot(x_guess, y_pred[0], c="b")
+    ax = plt.gca()
+    plot_mu, = ax.plot(x_guess, y_pred[0], c="b")
     plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightsteelblue")
-    plt.scatter(x, y, c="black")
+    if title != False:
+        plt.title(title)
+    plot_misure = ax.scatter(x, y, c="black")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.legend([plot_mu, plot_misure], ["media processo", "misure"], loc=2)
     
     
 def prior(kernel, R=0):
@@ -115,9 +121,16 @@ def prior(kernel, R=0):
     Lss = np.linalg.cholesky(Kss + 1e-6*np.eye(n))
     f_prior = np.dot(Lss, np.random.normal(size=(n,10)))
     
+    plt.figure()
+    plt.clf()
     plt.plot(x_guess, f_prior)
+    plt.title("10 estrazioni dalla distribuzione a priori")
+    plt.xlim([x_guess.min(), x_guess.max()])
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.savefig('prior.png', bbox_inches='tight')
     
-def post(kernel, R=0):
+def post(kernel, R=0, plot_mu = False):
     gaus = GPR(x, y, kernel, R=R)
     y_pred = np.vectorize(gaus.predict)(x_guess)
     
@@ -137,14 +150,24 @@ def post(kernel, R=0):
     # f_post = mu + L*N(0,1)
     f_post = np.tile(y_pred[0], (5,1)).T + np.dot(L2, np.random.normal(size=(n, 5)))
     
-    plt.plot(x_guess, y_pred[0], c="b")
-    plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightsteelblue")
-    plt.plot(x_guess, f_post)
-    plt.scatter(x, y, c="black")
+    plt.figure()
+    plt.clf()
+    ax = plt.gca()
+    if plot_mu == True:
+        plot_mu,= ax.plot(x_guess, y_pred[0], c="b")
+        plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightsteelblue")
+    ax.plot(x_guess, f_post)
+    plot_misure = ax.scatter(x, y, c="black")
+    plt.title("10 estrazioni dalla distribuzione predittiva")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.legend([plot_mu, plot_misure], ["media processo", "misure"])
+    plt.savefig('post.png', bbox_inches='tight')
 
+def clr():
+    return plt.close('all')
       
 #%% IMPOSTAZIONE PROBLEMA
-    
 f = lambda x: np.cos(.7*x).flatten()
 
 N = 5     # numero punti training
@@ -155,14 +178,27 @@ rng = np.random.RandomState(2)
 x = rng.uniform(-5, 5, size = (N,1))
 x_guess = np.linspace(-5, 5, n)
 y = f(x) + s*np.random.randn(N)
-#%% REGRESSORE 1
-gaus = GPR(x,y)
-y_pred = np.vectorize(gaus.predict)(x_guess)
+#%%
+# PLOT MISURE
+plt.figure()
+plt.title("Misure")
+ax = plt.gca()
+cosine, = ax.plot(x_guess, f(x_guess))
+measures = plt.scatter(x,y, c = "black")
+plt.xlabel("x")
+plt.ylabel("y")
+plt.legend([cosine, measures], ["f(x)", "punti training"])
+plt.savefig('misure.png', bbox_inches='tight')
 
-plt.scatter(x,y, c="black")
-plt.plot(x_guess, y_pred[0], c="b")
-plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightsteelblue")
-    
+#%%
+# PLOT PRIORI
+prior(GPR.kernel_bell_shape)
+#%%
+# PLOT POSTERIORI
+post(GPR.kernel_bell_shape)
+#%% REGRESSORE 1
+plt.figure()
+create_case(GPR.kernel_bell_shape, title = "GPR")
 #%% EFFETTI TERMINE RUMORE
 plt.figure(figsize=(16, 16))
 for i, r in enumerate([0.0001, 0.03, 0.09, 0.8, 1.5, 5.0]):
