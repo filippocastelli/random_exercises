@@ -200,7 +200,6 @@ plt.xlabel("x")
 plt.ylabel("y")
 plt.legend([cosine, measures], ["f(x)", "punti training"])
 plt.savefig('misure.png', bbox_inches='tight')
-
 #%%
 # PLOT PRIORI
 prior(GPR.kernel_bell_shape)
@@ -217,21 +216,22 @@ plt.figure(figsize=(16, 16))
 noiseplot_length = 1
 for i, r in enumerate([0.0001, 0.03, 0.09, 0.8, 1.5, 5.0]):
     plt.subplot("32{}".format(i+1))
-    plt.title("kernel={}, length={}, beta={}".format("bell shape", 1, r))
+    plt.title("kernel={}, length={}, noise variance={}".format("bell shape", noiseplot_length, r))
     create_case(
-        GPR.generate_kernel(GPR.kernel_bell_shape, length=1), R=r)
+        GPR.generate_kernel(GPR.kernel_bell_shape, length=noiseplot_length), R=r)
 #%% EFFETTI TERMINE LUNGHEZZA
 plt.figure(figsize=(16, 16))
-for i, d in enumerate([0.05, 0.5, 1, 3.2, 5.0, 7.0]):
+lengthplot_noise = 1e-3
+for i, l in enumerate([0.05, 0.5, 1, 3.2, 5.0, 7.0]):
     plt.subplot("32{}".format(i+1))
-    plt.title("kernel={}, length={}, beta={}".format("kernel_laplacian", d, 1))
+    plt.title("kernel={}, length={}, noise variance={}".format("kernel_laplacian", l, lengthplot_noise))
     create_case(
-        GPR.generate_kernel(GPR.kernel_bell_shape, length=d), R=0)
+        GPR.generate_kernel(GPR.kernel_bell_shape, length=l), R=lengthplot_noise)
 #%%
 gaus = GPR(x, y)
 R_list = np.linspace(0.0, 1, 100)
-B_list = np.linspace(0.1, 10, 20)
-best_params, history = gaus.optimize(R_list, B_list)
+L_list = np.linspace(0.1, 10, 20)
+best_params, history = gaus.optimize(R_list, L_list)
 
 plt.figure()
 plt.title("Prob. history")
