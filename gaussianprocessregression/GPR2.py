@@ -10,17 +10,17 @@ class GPR(object):
     #TODO: add kernels
     
     @classmethod #maybe update params
-    def kernel_bell_shape(cls, x, y, delta=1.0):
-        return np.exp(-0.5 * np.power(x-y, 2) / delta)
+    def kernel_bell_shape(cls, x, y, length=1.0):
+        return np.exp(-0.5 * np.power(x-y, 2) / length)
     
     @classmethod
-    def kernel_laplacian(cls, x,y,delta=1):
-        return np.exp(-0.5*np.abs(x-y) / delta)
+    def kernel_laplacian(cls, x,y,length=1):
+        return np.exp(-0.5*np.abs(x-y) / length)
     
     @classmethod #maybe update params
-    def generate_kernel(cls, kernel, delta=1):
+    def generate_kernel(cls, kernel, length=1):
         def wrapper(*args, **kwargs):
-            kwargs.update({"delta": delta})
+            kwargs.update({"length": length})
             return kernel(*args, **kwargs)
         return wrapper
     
@@ -78,10 +78,10 @@ class GPR(object):
         multiplier = np.power(np.linalg.det(2 * np.pi * K), -0.5)
         return multiplier * np.exp((-0.5) * (np.mat(y) * np.dot(np.mat(K).I, y).T))
         
-    def optimize(self, R_list, B_list):
-        def kernel_proxy(delta,f):
+    def optimize(self, R_list, L_list):
+        def kernel_proxy(length,f):
             def wrapper(*args, **kwargs):
-                kwargs.update({"delta": delta})
+                kwargs.update({"length": length})
                 return f(*args, **kwargs)
             return wrapper
         
@@ -89,19 +89,19 @@ class GPR(object):
         
         for r in R_list:
             best_beta = (0,0)
-            for b in B_list:
-                K = gaus.calculate_K(self.x, kernel_proxy(b, self.kernel),r)
-                marginal = b*float(self.get_probability(K, self.y, r))
+            for length in L_list:
+                K = gaus.calculate_K(self.x, kernel_proxy(length, self.kernel),r)
+                marginal = length*float(self.get_probability(K, self.y, r))
                 
                 if marginal > best_beta[0]:
-                    best_beta = (marginal,b)
+                    best_beta = (marginal,length)
                     
             history.append((best_beta[0], r, best_beta[1]))
             
         return sorted(history)[-1], np.mat(history)
 #%%
         
-def create_case(kernel, R=0, title = False):
+def create_case(kernel, R=0, title = False, save = False, orig_function = False):
     gaus = GPR(x, y, kernel, R=R)
     y_pred = np.vectorize(gaus.predict)(x_guess)
     
@@ -113,7 +113,15 @@ def create_case(kernel, R=0, title = False):
     plot_misure = ax.scatter(x, y, c="black")
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.legend([plot_mu, plot_misure], ["media processo", "misure"], loc=2)
+    legend_elements = [plot_mu, plot_misure]
+    legend_labels =  ["media processo", "misure"]
+    if orig_function != False:
+        cosine, = ax.plot(x_guess, f(x_guess))
+        legend_elements.append(cosine)
+        legend_labels.append("f(x)")
+    plt.legend(legend_elements, legend_labels, loc=2)
+    if save != False:
+        plt.savefig(save+".png", bbox_inches='tight')
     
     
 def prior(kernel, R=0):
@@ -131,6 +139,7 @@ def prior(kernel, R=0):
     plt.savefig('prior.png', bbox_inches='tight')
     
 def post(kernel, R=0, plot_mu = False):
+    n_draws = 10
     gaus = GPR(x, y, kernel, R=R)
     y_pred = np.vectorize(gaus.predict)(x_guess)
     
@@ -148,7 +157,7 @@ def post(kernel, R=0, plot_mu = False):
     L2 = np.linalg.cholesky(Kss + 1e-6 * np.eye(n) - np.dot(Lk.T, Lk))
     
     # f_post = mu + L*N(0,1)
-    f_post = np.tile(y_pred[0], (5,1)).T + np.dot(L2, np.random.normal(size=(n, 5)))
+    f_post = np.tile(y_pred[0], (n_draws,1)).T + np.dot(L2, np.random.normal(size=(n, n_draws)))
     
     plt.figure()
     plt.clf()
@@ -157,11 +166,13 @@ def post(kernel, R=0, plot_mu = False):
         plot_mu,= ax.plot(x_guess, y_pred[0], c="b")
         plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightsteelblue")
     ax.plot(x_guess, f_post)
-    plot_misure = ax.scatter(x, y, c="black")
+    
     plt.title("10 estrazioni dalla distribuzione predittiva")
     plt.xlabel("x")
     plt.ylabel("y")
+    plot_misure = ax.scatter(x, y, c="black")
     plt.legend([plot_mu, plot_misure], ["media processo", "misure"])
+    
     plt.savefig('post.png', bbox_inches='tight')
 
 def clr():
@@ -198,39 +209,36 @@ prior(GPR.kernel_bell_shape)
 post(GPR.kernel_bell_shape)
 #%% REGRESSORE 1
 plt.figure()
-create_case(GPR.kernel_bell_shape, title = "GPR")
-#%% EFFETTI TERMINE RUMORE
+ax = plt.gca()
+create_case(GPR.kernel_bell_shape, title = "GPR", save = "GPR", orig_function = True)
+cosine = ax.plot(x_guess, f(x_guess), c="red")
+    #%% EFFETTI TERMINE RUMORE
 plt.figure(figsize=(16, 16))
+noiseplot_length = 1
 for i, r in enumerate([0.0001, 0.03, 0.09, 0.8, 1.5, 5.0]):
     plt.subplot("32{}".format(i+1))
-    plt.title("kernel={}, delta={}, beta={}".format("bell shape", 1, r))
+    plt.title("kernel={}, length={}, beta={}".format("bell shape", 1, r))
     create_case(
-        GPR.generate_kernel(GPR.kernel_bell_shape, delta=1), R=r)
-    
+        GPR.generate_kernel(GPR.kernel_bell_shape, length=1), R=r)
 #%% EFFETTI TERMINE LUNGHEZZA
 plt.figure(figsize=(16, 16))
 for i, d in enumerate([0.05, 0.5, 1, 3.2, 5.0, 7.0]):
     plt.subplot("32{}".format(i+1))
-    plt.title("kernel={}, delta={}, beta={}".format("kernel_laplacian", d, 1))
+    plt.title("kernel={}, length={}, beta={}".format("kernel_laplacian", d, 1))
     create_case(
-        GPR.generate_kernel(GPR.kernel_bell_shape, delta=d), R=0)
-
+        GPR.generate_kernel(GPR.kernel_bell_shape, length=d), R=0)
 #%%
-
 gaus = GPR(x, y)
 R_list = np.linspace(0.0, 1, 100)
 B_list = np.linspace(0.1, 10, 20)
 best_params, history = gaus.optimize(R_list, B_list)
 
 plt.figure()
+plt.title("Prob. history")
 plt.plot(history[:,1], history[:,2])
 print("best parameters (probability, r, b): ", best_params)
 plt.show()
 
 plt.figure()
-create_case(GPR.generate_kernel(GPR.kernel_bell_shape, delta=best_params[2]), R=best_params[1])
+create_case(GPR.generate_kernel(GPR.kernel_bell_shape, length=best_params[2]), R=best_params[1], title = "Parametri Otimizzati")
 
-
-
-#%%
-post(GPR.kernel_bell_shape)
