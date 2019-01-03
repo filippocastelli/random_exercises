@@ -113,6 +113,27 @@ class GPR(object):
             history.append((best_beta[0], r, best_beta[1]))
             
         return sorted(history)[-1], np.mat(history)
+    
+    def optimize2(self, R_list, L_list):
+        def kernel_proxy(length,f):
+            def wrapper(*args, **kwargs):
+                kwargs.update({"length": length})
+                return f(*args, **kwargs)
+            return wrapper
+        
+        landscape = np.zeros((len(R_list), len(L_list)))
+        
+        for i, r in enumerate(R_list):
+            for j, l in enumerate(L_list):
+                K = gaus.calculate_K(self.x, kernel_proxy(l, self.kernel),r)
+                landscape[i,j]= self.get_probability(K, self.y, r)
+                
+        index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
+        
+        
+                
+        return landscape, R_list[index[0]], L_list[index[1]]
+        
 #%%
         
 def create_case(kernel, R=0, title = False, save = False, orig_function = False):
@@ -197,7 +218,7 @@ f = lambda x: np.cos(.7*x).flatten()
 
 N = 5     # numero punti training
 n = 500   # numero punti test
-s = 0.    # noise variance
+s = 0.001   # noise variance
 
 rng = np.random.RandomState(2)
 x = rng.uniform(-5, 5, size = (N,1))
@@ -244,7 +265,7 @@ for i, l in enumerate([0.05, 0.5, 1, 3.2, 5.0, 7.0]):
 plt.savefig('length_plot.png', bbox_inches='tight')
 #%%
 gaus = GPR(x, y)
-R_list = np.linspace(0.0, 1, 100)
+R_list = np.linspace(0.01, 1, 100)
 L_list = np.linspace(0.1, 100, 100)
 best_params, history = gaus.optimize(R_list, L_list)
 
@@ -256,4 +277,22 @@ plt.show()
 
 plt.figure()
 create_case(GPR.generate_kernel(GPR.kernel_gaussian, length=best_params[2]), R=best_params[1], title = "Parametri Otimizzati")
+plt.savefig('optimal_params.png', bbox_inches='tight')
+#%%
+
+gaus = GPR(x, y)
+R_list = np.linspace(0.0001, 0.1, 100)
+L_list = np.linspace(0.1, 100, 100)
+lml, r_opt, l_opt= gaus.optimize2(R_list, L_list)
+
+#plt.figure()
+#plt.title("Prob. history")
+#plt.plot(history[:,1], history[:,2])
+#print("best parameters (probability, r, b): ", best_params)
+#plt.show()
+
+plt.figure()
+plt.imshow(lml, cmap = 'viridis')
+plt.figure()
+create_case(GPR.generate_kernel(GPR.kernel_gaussian, length=l_opt), R=r_opt, title = "Parametri Otimizzati")
 plt.savefig('optimal_params.png', bbox_inches='tight')
