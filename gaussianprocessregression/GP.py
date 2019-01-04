@@ -4,6 +4,8 @@ import seaborn as sns
 from tqdm import tqdm
 sns.set(color_codes = True)
 from itertools import product
+from joblib import Parallel, delayed
+import multiprocessing
 #%%
 
 class GPR(object):
@@ -11,8 +13,8 @@ class GPR(object):
     #TODO: add kernels
     
     @classmethod
-    def mix1(cls, x, y, length=1.0, period= 1, const1 = 1.0, const2 = 1.0):
-        return cls.kernel_gaussian(x,y,length) + cls.kernel_periodic(x,y,length,period)
+    def mix1(cls, x, y, length=1.0, length2=1.0, period= 1, const= 1.0, const2 = 1.0):
+        return cls.kernel_gaussian(x,y,length, const) + const2*cls.kernel_periodic(x,y,length2,period)
     
     @classmethod #maybe update params
     def kernel_gaussian(cls, x, y, length=1.0, const = 1.0):
@@ -29,12 +31,18 @@ class GPR(object):
         return const*np.exp(exp_argument)
     
     @classmethod #maybe update params
-    def generate_kernel(cls, kernel, length=1, period=1, const1 = 1.0, const2 = 1.0):
+    def generate_kernel(cls, kernel, length=1.0, length2= 1.0, period=1, const= 1.0, const2 = 1.0):
         def wrapper(*args, **kwargs):
             kwargs.update({"length": length})
-            kwargs.update({"const": const1})
-            if kernel == cls.kernel_periodic or kernel == cls.mix1:
+            kwargs.update({"const": const})
+            if kernel == cls.kernel_periodic :
                 kwargs.update({"period": period})
+                
+            if kernel == cls.mix1:
+                kwargs.update({"period": period})
+                kwargs.update({"length2": length2})
+                kwargs.update({"const2": const2})
+                
             return kernel(*args, **kwargs)
         return wrapper
     
@@ -128,93 +136,119 @@ class GPR(object):
 #            
 #        return sorted(history)[-1], np.mat(history)
     
-    def optimize(self, *args, **kwargs):
+#    def optimize(self, *args, **kwargs):
+#        
+#        def kernel_proxy(f, *args):
+#            length = args[0]
+#            const = args[-1]
+#            
+#            if f == self.kernel_periodic:
+#                period = args[1]
+#                
+#            def wrapper(*args, **kwargs):
+#                kwargs.update({"length": length})
+#                kwargs.update({"const": const})
+#                if f == self.kernel_periodic or f == self.mix1:
+#                    kwargs.update({"period": period})
+#                return f(*args, **kwargs)
+#            return wrapper
+#        
+#        
+#        
+#        if len(args) == 2:
+#            R_list = args[0]
+#            L_list = args[1]
+#            
+#            landscape = np.zeros((len(R_list), len(L_list)))
+#            
+#            for i, r in enumerate(tqdm(R_list)):
+#                for j, l in enumerate(L_list):
+#                    K = self.calculate_K(self.x, kernel_proxy(self.kernel,l),r)
+#                    landscape[i,j]= self.get_probability(K, self.y, r)
+#                    
+#            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
+#            
+#            best_params = [R_list[index[0]], L_list[index[1]]]
+#            
+#        elif len(args)==3:
+#            R_list = args[0]
+#            L_list = args[1]
+#            P_list = args[2]
+#            
+#            landscape = np.zeros((len(R_list), len(L_list), len(P_list)))
+#            
+#            for i, r in enumerate(tqdm(R_list)):
+#                for j, l in enumerate(L_list):
+#                    for k, p in enumerate(P_list):
+#                        K = self.calculate_K(self.x, kernel_proxy(self.kernel, l, p),r)
+#                        landscape[i,j,k]= self.get_probability(K, self.y, r)
+#                    
+#            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
+#            best_params = [R_list[index[0]], L_list[index[1]], P_list[index[2]]]
+#        
+#                
+#        return landscape, best_params
+#    
+#    
+#    def optimize3(self, R_list, L_list):
+#        def kernel_proxy(length,f):
+#            def wrapper(*args, **kwargs):
+#                kwargs.update({"length": length})
+#                return f(*args, **kwargs)
+#            return wrapper
+#        
+#        landscape = np.zeros((len(R_list), len(L_list)))
+#        
+#        for i, r in enumerate(tqdm(R_list)):
+#            for j, l in enumerate(L_list):
+#                K = self.calculate_K(self.x, kernel_proxy(l, self.kernel),r)
+#                landscape[i,j]= self.get_probability(K, self.y, r)
+#                
+#        index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
+#        
+#        return landscape, R_list[index[0]], L_list[index[1]]
+#    
+    
+    def optimizer(self,*args, **kwargs):
+        
+        parallel = True
         
         def kernel_proxy(f, *args):
-            length = args[0]
-            const = args[-1]
+            print("hello tehere")
+            length, *other = args
+            if len(other) == 1:
+                ker = 0
+                const = other
+            elif len(other) == 2:
+                ker = 1
+                period, const = other
+            elif len(other) == 4:
+                ker = 2
+                const, length2, period, const2 = other
+            else:
+                raise Exception('numero argomenti non valido')
+#                
+#            if f == self.kernel_gaussian or f == self.kernel_laplacian:
+#                length, const= args
+#            elif f == self.kernel_periodic:
+#                length, period, const= args
+#            elif f == self.mix1:
+#                length, const, length2, period, const2 = args
+#            else:
+#                print("ciao")
+#                raise Exception('optimizer does not yet support {} kernel'.format(f))
             
-            if f == self.kernel_periodic:
-                period = args[1]
-                
             def wrapper(*args, **kwargs):
                 kwargs.update({"length": length})
                 kwargs.update({"const": const})
-                if f == self.kernel_periodic or f == self.mix1:
+                if ker == 1:
                     kwargs.update({"period": period})
-                return f(*args, **kwargs)
-            return wrapper
-        
-        
-        
-        if len(args) == 2:
-            R_list = args[0]
-            L_list = args[1]
-            
-            landscape = np.zeros((len(R_list), len(L_list)))
-            
-            for i, r in enumerate(tqdm(R_list)):
-                for j, l in enumerate(L_list):
-                    K = self.calculate_K(self.x, kernel_proxy(self.kernel,l),r)
-                    landscape[i,j]= self.get_probability(K, self.y, r)
                     
-            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-            
-            best_params = [R_list[index[0]], L_list[index[1]]]
-            
-        elif len(args)==3:
-            R_list = args[0]
-            L_list = args[1]
-            P_list = args[2]
-            
-            landscape = np.zeros((len(R_list), len(L_list), len(P_list)))
-            
-            for i, r in enumerate(tqdm(R_list)):
-                for j, l in enumerate(L_list):
-                    for k, p in enumerate(P_list):
-                        K = self.calculate_K(self.x, kernel_proxy(self.kernel, l, p),r)
-                        landscape[i,j,k]= self.get_probability(K, self.y, r)
-                    
-            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-            best_params = [R_list[index[0]], L_list[index[1]], P_list[index[2]]]
-        
-                
-        return landscape, best_params
-    
-    
-    def optimize3(self, R_list, L_list):
-        def kernel_proxy(length,f):
-            def wrapper(*args, **kwargs):
-                kwargs.update({"length": length})
-                return f(*args, **kwargs)
-            return wrapper
-        
-        landscape = np.zeros((len(R_list), len(L_list)))
-        
-        for i, r in enumerate(tqdm(R_list)):
-            for j, l in enumerate(L_list):
-                K = self.calculate_K(self.x, kernel_proxy(l, self.kernel),r)
-                landscape[i,j]= self.get_probability(K, self.y, r)
-                
-        index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-        
-        return landscape, R_list[index[0]], L_list[index[1]]
-    
-    
-    def optimizer(self, *args, **kwargs):
-        
-        def kernel_proxy(f, *args):
-            length = args[0]
-            const = args[-1]
-            
-            if f == self.kernel_periodic:
-                period = args[1]
-                
-            def wrapper(*args, **kwargs):
-                kwargs.update({"length": length})
-                kwargs.update({"const": const})
-                if f == self.kernel_periodic or f == self.mix1:
+                if ker == 2:
                     kwargs.update({"period": period})
+                    kwargs.update({"length2": length2})
+                    kwargs.update({"const2": const2})
+                    
                 return f(*args, **kwargs)
             return wrapper
         
@@ -224,9 +258,22 @@ class GPR(object):
         
         landscape = np.zeros(n_elements)
         
-        for i, item in enumerate(tqdm(list(product(*lists)))):
+        def calc_lml_element(item):
             K = self.calculate_K(self.x, kernel_proxy(self.kernel,*item[1:]),item[0])
-            landscape[i]= self.get_probability(K, self.y, item[0])
+            return self.get_probability(K, self.y, item[0])
+        
+        
+        if parallel == True:
+            num_cores = multiprocessing.cpu_count()
+            landscape_list = Parallel(n_jobs=num_cores)(delayed(calc_lml_element)(i) for i in tqdm(list(product(*lists))))
+            
+            landscape = np.array(landscape_list)
+            
+        else:
+            #NON PARALLELIZED
+            for i, item in enumerate(tqdm(list(product(*lists)))):
+                K = self.calculate_K(self.x, kernel_proxy(self.kernel,*item[1:]),item[0])
+                landscape[i]= self.get_probability(K, self.y, item[0])
             
         forma = []
         for lista in lists:
