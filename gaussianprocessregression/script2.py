@@ -58,7 +58,7 @@ R_list = np.linspace(0.0, 1, 10)
 L_list = np.linspace(0.1, 100, 10)
 P_list = np.linspace(6, 10, 10)
 
-lml, params= gaus.optimize2(R_list, L_list)
+lml, params= gaus.optimizer(R_list, L_list,[1])
 print("best parameters (log-likelihood, noise, length_scale):",lml.max(),params[0], params[1])
 create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_gaussian, length=params[1]), R=params[0], title = "Parametri Otimizzati")
 
@@ -80,7 +80,7 @@ R_list = np.linspace(0.0, 1, 100)
 L_list = np.linspace(0.1, 100, 10)
 P_list = np.linspace(6, 10, 10)
 
-lml, params= gaus2.optimize2(R_list, L_list, P_list)
+lml, params= gaus2.optimizer(R_list, L_list, P_list,[1])
 
 disp_params = np.round(params, 2)
 print("best parameters (log-likelihood, noise, length_scale, period):",np.round(lml.max(),2),disp_params[0], disp_params[1], disp_params[2])

@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
 sns.set(color_codes = True)
-
+from itertools import product
 #%%
 
 class GPR(object):
@@ -11,27 +11,28 @@ class GPR(object):
     #TODO: add kernels
     
     @classmethod
-    def mix1(cls, x, y, length=1.0, period= 1):
+    def mix1(cls, x, y, length=1.0, period= 1, const1 = 1.0, const2 = 1.0):
         return cls.kernel_gaussian(x,y,length) + cls.kernel_periodic(x,y,length,period)
     
     @classmethod #maybe update params
-    def kernel_gaussian(cls, x, y, length=1.0):
-        return np.exp(-0.5 * np.power(x-y, 2) / length)
+    def kernel_gaussian(cls, x, y, length=1.0, const = 1.0):
+        return const*np.exp(-0.5 * np.power(x-y, 2) / length)
     
     @classmethod
-    def kernel_laplacian(cls, x,y,length=1):
+    def kernel_laplacian(cls, x,y,length=1, const = 1.0):
         return np.exp(-0.5*np.abs(x-y) / length)
     
     @classmethod
-    def kernel_periodic(cls, x,y,length=1, period=1):
+    def kernel_periodic(cls, x,y,length=1, period=1, const = 1.0):
         sin_argument = np.pi*np.abs(x-y)/period
         exp_argument = -2*np.power(np.sin(sin_argument),2)/length
-        return np.exp(exp_argument)
+        return const*np.exp(exp_argument)
     
     @classmethod #maybe update params
-    def generate_kernel(cls, kernel, length=1, period=1):
+    def generate_kernel(cls, kernel, length=1, period=1, const1 = 1.0, const2 = 1.0):
         def wrapper(*args, **kwargs):
             kwargs.update({"length": length})
+            kwargs.update({"const": const1})
             if kernel == cls.kernel_periodic or kernel == cls.mix1:
                 kwargs.update({"period": period})
             return kernel(*args, **kwargs)
@@ -105,41 +106,45 @@ class GPR(object):
         )
         return logp
 
-    def optimize(self, R_list, L_list):
-        def kernel_proxy(length,f):
-            def wrapper(*args, **kwargs):
-                kwargs.update({"length": length})
-                return f(*args, **kwargs)
-            return wrapper
-        
-        history = []
-        
-        for r in R_list:
-            best_beta = (0,0)
-            for length in L_list:
-                K = self.calculate_K(self.x, kernel_proxy(length, self.kernel),r)
-                marginal = length*float(self.get_probability(K, self.y, r))
-                
-                if marginal > best_beta[0]:
-                    best_beta = (marginal,length)
-                    
-            history.append((best_beta[0], r, best_beta[1]))
-            
-        return sorted(history)[-1], np.mat(history)
+#    def optimize(self, R_list, L_list):
+#        def kernel_proxy(length,f):
+#            def wrapper(*args, **kwargs):
+#                kwargs.update({"length": length})
+#                return f(*args, **kwargs)
+#            return wrapper
+#        
+#        history = []
+#        
+#        for r in R_list:
+#            best_beta = (0,0)
+#            for length in L_list:
+#                K = self.calculate_K(self.x, kernel_proxy(length, self.kernel),r)
+#                marginal = length*float(self.get_probability(K, self.y, r))
+#                
+#                if marginal > best_beta[0]:
+#                    best_beta = (marginal,length)
+#                    
+#            history.append((best_beta[0], r, best_beta[1]))
+#            
+#        return sorted(history)[-1], np.mat(history)
     
-    def optimize2(self, *args, **kwargs):
+    def optimize(self, *args, **kwargs):
         
         def kernel_proxy(f, *args):
             length = args[0]
-            if len(args) == 2:
+            const = args[-1]
+            
+            if f == self.kernel_periodic:
                 period = args[1]
                 
             def wrapper(*args, **kwargs):
                 kwargs.update({"length": length})
+                kwargs.update({"const": const})
                 if f == self.kernel_periodic or f == self.mix1:
                     kwargs.update({"period": period})
                 return f(*args, **kwargs)
             return wrapper
+        
         
         
         if len(args) == 2:
@@ -194,6 +199,48 @@ class GPR(object):
         index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
         
         return landscape, R_list[index[0]], L_list[index[1]]
+    
+    
+    def optimizer(self, *args, **kwargs):
+        
+        def kernel_proxy(f, *args):
+            length = args[0]
+            const = args[-1]
+            
+            if f == self.kernel_periodic:
+                period = args[1]
+                
+            def wrapper(*args, **kwargs):
+                kwargs.update({"length": length})
+                kwargs.update({"const": const})
+                if f == self.kernel_periodic or f == self.mix1:
+                    kwargs.update({"period": period})
+                return f(*args, **kwargs)
+            return wrapper
+        
+        lists = args
+        
+        n_elements = len(list(product(*lists)))
+        
+        landscape = np.zeros(n_elements)
+        
+        for i, item in enumerate(tqdm(list(product(*lists)))):
+            K = self.calculate_K(self.x, kernel_proxy(self.kernel,*item[1:]),item[0])
+            landscape[i]= self.get_probability(K, self.y, item[0])
+            
+        forma = []
+        for lista in lists:
+            forma.append(len(lista))
+        
+        landscape.shape = tuple(forma)
+        
+        index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
+        
+        best_params = []
+        for i,lista in enumerate(lists):
+            best_params.append(lista[index[i]])
+                        
+        return landscape, best_params
         
 #%%
 def f1(x):
