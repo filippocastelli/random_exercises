@@ -105,24 +105,3 @@ print("best parameters (probability, noise, length_scale):",lml.max(),r_opt, l_o
 create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_gaussian, length=l_opt), R=r_opt, title = "Parametri Otimizzati")
 plt.savefig('optimal_params.png', bbox_inches='tight')
 
-#%%
-a = [1,2,3]
-b =[7,8,9]
-c = [4,5,6]
-
-liste = [a,b,c]
-
-n_elements = len(list(product(*liste)))
-
-elements = np.zeros(n_elements)
-
-for i, item in enumerate(product(*liste)):
-    print("item # ", i, " is ",item)
-    elements[i] = np.sum(item)
-    
-
-forma = []
-for lista in liste:
-    forma.append(len(lista))
-
-elements.shape = tuple(forma)
