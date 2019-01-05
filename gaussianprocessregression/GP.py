@@ -6,6 +6,7 @@ sns.set(color_codes = True)
 from itertools import product
 from joblib import Parallel, delayed
 import multiprocessing
+import pickle
 #%%
 
 class GPR(object):
@@ -113,102 +114,7 @@ class GPR(object):
             - K.shape[0] * 0.5 * np.log(2 * np.pi)
         )
         return logp
-
-#    def optimize(self, R_list, L_list):
-#        def kernel_proxy(length,f):
-#            def wrapper(*args, **kwargs):
-#                kwargs.update({"length": length})
-#                return f(*args, **kwargs)
-#            return wrapper
-#        
-#        history = []
-#        
-#        for r in R_list:
-#            best_beta = (0,0)
-#            for length in L_list:
-#                K = self.calculate_K(self.x, kernel_proxy(length, self.kernel),r)
-#                marginal = length*float(self.get_probability(K, self.y, r))
-#                
-#                if marginal > best_beta[0]:
-#                    best_beta = (marginal,length)
-#                    
-#            history.append((best_beta[0], r, best_beta[1]))
-#            
-#        return sorted(history)[-1], np.mat(history)
-    
-#    def optimize(self, *args, **kwargs):
-#        
-#        def kernel_proxy(f, *args):
-#            length = args[0]
-#            const = args[-1]
-#            
-#            if f == self.kernel_periodic:
-#                period = args[1]
-#                
-#            def wrapper(*args, **kwargs):
-#                kwargs.update({"length": length})
-#                kwargs.update({"const": const})
-#                if f == self.kernel_periodic or f == self.mix1:
-#                    kwargs.update({"period": period})
-#                return f(*args, **kwargs)
-#            return wrapper
-#        
-#        
-#        
-#        if len(args) == 2:
-#            R_list = args[0]
-#            L_list = args[1]
-#            
-#            landscape = np.zeros((len(R_list), len(L_list)))
-#            
-#            for i, r in enumerate(tqdm(R_list)):
-#                for j, l in enumerate(L_list):
-#                    K = self.calculate_K(self.x, kernel_proxy(self.kernel,l),r)
-#                    landscape[i,j]= self.get_probability(K, self.y, r)
-#                    
-#            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-#            
-#            best_params = [R_list[index[0]], L_list[index[1]]]
-#            
-#        elif len(args)==3:
-#            R_list = args[0]
-#            L_list = args[1]
-#            P_list = args[2]
-#            
-#            landscape = np.zeros((len(R_list), len(L_list), len(P_list)))
-#            
-#            for i, r in enumerate(tqdm(R_list)):
-#                for j, l in enumerate(L_list):
-#                    for k, p in enumerate(P_list):
-#                        K = self.calculate_K(self.x, kernel_proxy(self.kernel, l, p),r)
-#                        landscape[i,j,k]= self.get_probability(K, self.y, r)
-#                    
-#            index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-#            best_params = [R_list[index[0]], L_list[index[1]], P_list[index[2]]]
-#        
-#                
-#        return landscape, best_params
-#    
-#    
-#    def optimize3(self, R_list, L_list):
-#        def kernel_proxy(length,f):
-#            def wrapper(*args, **kwargs):
-#                kwargs.update({"length": length})
-#                return f(*args, **kwargs)
-#            return wrapper
-#        
-#        landscape = np.zeros((len(R_list), len(L_list)))
-#        
-#        for i, r in enumerate(tqdm(R_list)):
-#            for j, l in enumerate(L_list):
-#                K = self.calculate_K(self.x, kernel_proxy(l, self.kernel),r)
-#                landscape[i,j]= self.get_probability(K, self.y, r)
-#                
-#        index = np.unravel_index(np.argmax(landscape, axis=None), landscape.shape)
-#        
-#        return landscape, R_list[index[0]], L_list[index[1]]
-#    
-    
+   
     def optimizer(self,*args, **kwargs):
         
         parallel = True
@@ -293,9 +199,28 @@ class GPR(object):
 def f1(x):
     return np.cos(.7*x).flatten()
         
-def create_case(x, x_guess, y, kernel, R=0, title = False, save = False, orig_function = False, f = f1):
-    gaus = GPR(x, y, kernel, R=R)
-    y_pred = np.vectorize(gaus.predict)(x_guess)
+def create_case(x, x_guess, y, kernel, R=0,
+                title = False,
+                save = False,
+                orig_function = False,
+                load = False,
+                f = f1):
+    if load != False:
+        f = open(load+'.gpr', 'rb')
+        x_loaded, x_guess_loaded, y_loaded, R_loaded, y_pred_loaded= pickle.load(f)
+        f.close()
+        if (x == x_loaded).all() and (x_guess == x_guess_loaded).all() and (y_loaded == y).all() and (R_loaded == R):
+            y_pred = y_pred_loaded
+            gaus = GPR(x, y, kernel, R=R)
+            print("file "+ load + ".gpr succesfully loaded")
+        else: 
+            print("file "+ load + ".gpr can't be loaded")
+            print("check if x, x_guess, y, y_pred are the same")
+            raise Exception('cannot load {}.gpr file'.format(load))
+    else:
+        gaus = GPR(x, y, kernel, R=R)
+        y_pred = np.vectorize(gaus.predict)(x_guess)
+    
     
     ax = plt.gca()
     plot_mu, = ax.plot(x_guess, y_pred[0], c="b")
@@ -313,7 +238,11 @@ def create_case(x, x_guess, y, kernel, R=0, title = False, save = False, orig_fu
         legend_labels.append("f(x)")
     plt.legend(legend_elements, legend_labels, loc=2)
     if save != False:
+        f = open(save+'.gpr', 'wb')
+        pickle.dump([x, x_guess, y, R, y_pred], f)
+        f.close()
         plt.savefig(save+".png", bbox_inches='tight')
+        
     
     
 def prior(x, x_guess,kernel, R=0):
