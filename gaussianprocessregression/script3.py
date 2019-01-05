@@ -30,8 +30,4 @@ k3 = GPR.generate_kernel(kernel=GPR.mix1, length=1, length2 = 2, period = 3, con
 def somma_wrap(*args, **kwargs):
     return k1(args[0], args[1]) +k2(args[0], args[1])
 
-create_case(x,x_guess, y, kernel= somma_wrap, R = 0.1)
-
-
-#%%
-
+create_case(x,x_guess, y, kernel= somma_wrap, R = 0.1, save = "ciao")

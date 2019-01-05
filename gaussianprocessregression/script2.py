@@ -43,29 +43,23 @@ gaus = GPR(x = x,
 
 R_list = np.linspace(0.0, 1, 100)
 L_list = np.linspace(0.1, 100, 100)
-C_list = np.linspace(0, 10, 100)
+C_list = [1]
 
 lml, params= gaus.optimizer(R_list, L_list,C_list)
 print("best parameters (log-likelihood, noise, length_scale):",lml.max(),params[0], params[1])
-create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_gaussian, length=params[1]), R=params[0], title = "Parametri Otimizzati")
-
-
-#%%
-
-print("best parameters (probability, noise, length_scale, period):",lml.max(),params[0], params[1], params[2])
-
-create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period = params[2]), R=params[0], title = "Parametri Otimizzati")
-plt.savefig('optimal_params.png', bbox_inches='tight')
+create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_gaussian, length=params[1]), R=params[0], title = "Parametri Otimizzati - Kernel Gaussiano")
 
 #%% PARAMETER OPTIMIZATION
+gaus_periodic = GPR(x = x, y= y, kernel = GPR.kernel_periodic)
+
 
 gaus2 = GPR(x = x,
            y = y,
            kernel = GPR.kernel_periodic)
 
 #R_list = np.linspace(0.0, 0.05, 100)
-R_list = [0.01]
-L_list = np.linspace(0.1, 100, 100)
+R_list = np.linspace(0.01, 0.2, 100)
+L_list = np.linspace(0.1, 15, 100)
 #P_list = np.linspace(6, 8.9, 100)
 P_list = [8.78]
 C_list = [1]
@@ -74,7 +68,7 @@ lml, params= gaus2.optimizer(R_list, L_list, P_list,C_list)
 
 disp_params = np.round(params, 2)
 print("best parameters (log-likelihood, noise, length_scale, period, const):",np.round(lml.max(),2),disp_params[0], disp_params[1], disp_params[2], disp_params[3])
-create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]), R=params[0], title = "Parametri Otimizzati")
+create_case(x, x_guess, y, kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]), R=params[0], title = "Parametri Otimizzati - Kernel Periodico")
 
 #%%
 gausmix = GPR(x = x,
@@ -90,7 +84,7 @@ gausmix = GPR(x = x,
 
 R_list = [0.01]
 L_list = np.linspace(3, 10, 100)
-C1_list = [1]
+C1_list = np.linspace(0,1,10)
 L2_list = [3]
 P_list = [8.78]
 C2_list = [0.]
