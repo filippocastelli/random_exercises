@@ -116,7 +116,7 @@ class GPR(object):
         return logp
    
     def optimizer(self,*args, **kwargs):
-        
+            
         parallel = True
         
         def kernel_proxy(f, *args):
@@ -303,6 +303,60 @@ def post(x, x_guess, y,kernel, R=0, plot_mu = False):
 def clr():
     return plt.close('all')
 
+def gen_data(x, x_guess, y,kernel, R=0,
+             plot_mu = False, plot_variance = False,
+             save = False, separate_figure = True):
+    N = len(x)
+    n = len(x_guess)
+    
+    gaus = GPR(x, y, kernel, R=R)
+    y_pred = np.vectorize(gaus.predict)(x_guess)
+    
+    K = np.mat(gaus.K) + 1e-6*np.eye(N)
+    L = np.linalg.cholesky(K)
 
+    
+    Kss = GPR.calculate_K(x_guess, kernel, R=0)
+
+    Ks = np.zeros((n,N))
+    for i in range(len(x_guess)):
+        Ks[i] = np.squeeze(gaus.calculate_Ks(x_guess[i]))
+        
+    Lk = np.linalg.solve(L, Ks.T)
+    L2 = np.linalg.cholesky(Kss + 1e-6 * np.eye(n) - np.dot(Lk.T, Lk))
+    
+    # f_post = mu + L*N(0,1)
+    
+    f_post = np.zeros(n)
+    for i, point in enumerate(x_guess):
+        f_post[i] = y_pred[0][i] + np.dot(L2[:,i], np.random.normal(size = (n,1)))
+    
+#    f_post = np.tile(y_pred[0], (n,1)).T + np.dot(L2, np.random.normal(size=(n, n)))
+    
+    
+    
+    
+    if separate_figure == True:
+        plt.figure()
+        plt.clf()
+        
+    ax = plt.gca()
+    if plot_mu == True:
+        plot_mu,= ax.plot(x_guess, y_pred[0], c="b")
+    if plot_variance == True:
+        plt.gca().fill_between(x_guess, y_pred[0]-np.sqrt(y_pred[1]), y_pred[0]+np.sqrt(y_pred[1]), color="lightgray")
+
+    ax.scatter(x_guess, f_post, c = "red")
+    
+    plt.title("Dati generati dalla distribuzione predittiva")
+    plt.xlabel("x")
+    plt.ylabel("y")
+#    plot_misure = ax.scatter(x, y, c="black")
+    plot_dati = ax.scatter(x_guess, f_post, c = "red")
+#    plt.legend([plot_mu,plot_dati, plot_misure], ["media processo","dati simulati", "misure"])
+    plt.legend([plot_mu,plot_dati], ["media processo","dati simulati"])
+    
+    if save != False:
+        plt.savefig(save+'.png', bbox_inches='tight')
 
       
