@@ -4,7 +4,7 @@ import seaborn as sns
 sns.set(color_codes = True)
 
 from GP import GPR
-from GP import f1, create_case, prior, post, clr
+from GP import f1, create_case, prior, post, clr, gen_data
 from itertools import product
 #%% IMPOSTAZIONE PROBLEMA
 
@@ -29,6 +29,8 @@ plt.xlabel("x")
 plt.ylabel("y")
 plt.legend([cosine, measures], ["f(x)", "punti training"])
 plt.savefig('misure.png', bbox_inches='tight')
+#%%
+gen_data(x, x_guess,y, GPR.kernel_gaussian, R = 0.1, save = "gendata")
 #%%
 # PLOT PRIORI
 

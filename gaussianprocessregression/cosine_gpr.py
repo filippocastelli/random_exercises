@@ -4,7 +4,7 @@ import seaborn as sns
 sns.set(color_codes = True)
 
 from GP import GPR
-from GP import f1, create_case, prior, post, clr
+from GP import f1, create_case, prior, post, clr, gen_data
 
 import pickle
 
@@ -12,7 +12,7 @@ import pickle
 func = lambda x: np.cos(x).flatten()
 
 N = 100 # numero punti training
-n = 10000   # numero punti test
+n = 200   # numero punti test
 s = 0.1   # noise variance
 
 period = np.pi/0.7
@@ -47,33 +47,45 @@ gaus2 = GPR(x = x,
            y = y,
            kernel = GPR.kernel_periodic)
 #%%
+optim = False
 R_list = np.linspace(0.01, 0.2, 10)
 L_list = np.linspace(0.1, 10, 50)
 P_list = np.linspace(4, 9, 100)
 C_list = [1]
-
-lml, params= gaus2.optimizer(R_list, L_list, P_list,C_list)
+if optim == True:
+    lml, params= gaus2.optimizer(R_list, L_list, P_list,C_list)
 #%% SALVO PARAMETRI
-f = open('parametri_periodico.pckl', 'wb')
-pickle.dump([lml,params], f)
-f.close()
+salva = False
+if salva == True:
+    f = open('parametri_periodico.pckl', 'wb')
+    pickle.dump([lml,params], f)
+    f.close()
 #%% o CARCO PARAMETRI
 f = open('parametri_periodico.pckl', 'rb')
+#lml, params = pickle.load(f)
 params = pickle.load(f)
 f.close()
 #%% 
-disp_params = np.round(params, 2)
-print("best parameters (log-likelihood, noise, length_scale, period, const):",np.round(lml.max(),2),disp_params[0], disp_params[1], disp_params[2], disp_params[3])
-#%%
+#disp_params = np.round(params, 2)
+#print("best parameters (log-likelihood, noise, length_scale, period, const):",np.round(lml.max(),2),disp_params[0], disp_params[1], disp_params[2], disp_params[3])
+#%% PLOT REGRESSORE
 create_case(x, x_guess, y,
             kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]),
             R=params[0],
             title = "Parametri Otimizzati - Kernel Periodico, Dati Mancanti",
-            load = "aridaje2")
+            save = "periodico_datimancanti")
 
 plt.axvline(x=3)
 plt.axvline(x=7)
-
+plt.savefig('periodico_datimancanti.png', bbox_inches='tight')
+#%%
+N_gendata = 50
+x_gendata = rng.uniform(3, 7, size = (N_gendata,1)).flatten()
+x_gendata.sort()
+gen_data(x, x_gendata, y,
+         kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]),
+         R=params[0],separate_figure = False, save = "reconstructed_data",
+         plot_mu = True)
 #%% MISURE: DATI MANCANTI 2
 func = lambda x: np.cos(x).flatten()
 
@@ -92,19 +104,20 @@ x_ext_guess = np.linspace(0, 60, n)
 y_ext = func(x_ext) +s*np.random.randn(N)
 
 #%% PLOT MISURE 2
-plt.figure()
+plt.figure(figsize = (20, 5))
 plt.title("Misure: dati mancanti 2")
 ax = plt.gca()
 cosine, = ax.plot(x_ext_guess, func(x_ext_guess))
-measures = plt.scatter(x_ext,y_ext, c = "black")
+measures = plt.scatter(x_ext,y_ext, c = "black")    
 plt.xlabel("x")
 plt.ylabel("y")
 plt.legend([cosine, measures], ["f(x)", "punti training"])
 plt.axvline(x=10)
 plt.axvline(x=15)
-plt.savefig('misure_dati_mancanti2.png', bbox_inches='tight')
+plt.savefig('misure_dati_mancanti_ext.png', bbox_inches='tight')
 
-#%%
+#%% #REGRESSORE 2 - KERNEL PERIODICO
+plt.figure(figsize = (20, 5))
 create_case(x_ext, x_ext_guess, y_ext,
             kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]),
             R=params[0],
@@ -113,4 +126,4 @@ create_case(x_ext, x_ext_guess, y_ext,
 
 plt.axvline(x=10)
 plt.axvline(x=15)
-plt.savefig('periodico_ext.png', bbox_inches='tight')
+plt.savefig('periodico_ext_datimancanti.png', bbox_inches='tight')
