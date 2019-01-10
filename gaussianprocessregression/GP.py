@@ -17,32 +17,134 @@ class GPR(object):
     def mix1(cls, x, y, length=1.0, length2=1.0, period= 1, const= 1.0, const2 = 1.0):
         return cls.kernel_gaussian(x,y,length, const) + const2*cls.kernel_periodic(x,y,length2,period)
     
-    @classmethod #maybe update params
-    def kernel_gaussian(cls, x, y, length=1.0, const = 1.0):
-        return const*np.exp(-0.5 * np.power(x-y, 2) / length)
+    @classmethod
+    def kernel_gaussian(cls, x, y, length=1.0, const = 1.0, wantgrad=False):
+        
+        sq_dist = np.power(x-y,2)
+        exponential = np.exp(-0.5 * sq_dist / length**2)
+        k = (const**2)*exponential
+        if wantgrad == False:
+            return k
+        else:
+            gradient = np.zeros(2)
+            gradient[0] = 2*const*exponential
+            gradient[1] = (const**2)*exponential*sq_dist*np.power(length, -3)
+            
+            return k, gradient
+        
+    @classmethod
+    def kernel_periodic_decay(cls, x, y, length=1.0, const = 1.0, decay = 1.0, wantgrad=False):
+        sq_dist = np.power(x-y,2)
+        
+        period = 1
+        
+        exp_arg_1 = -0.5 * sq_dist / decay**2
+        
+        squared_sin = np.power(np.sin(np.pi*(x-y)/period),2)
+        exp_arg_2 = -2 * squared_sin/(length**2)
+        
+        exponential = np.exp(exp_arg_1 + exp_arg_2)
+        
+        k = (const**2)*exponential
+        if wantgrad == False:
+            return k
+        else:
+            gradient = np.zeros(3)
+            gradient[0] = 2*const*exponential
+            gradient[1] = (const**2)*exponential*sq_dist*np.power(decay, -3)
+            gradient[2] = (const**2)*exponential*4*squared_sin*np.power(length, -3)
+            
+            return k, gradient
     
     @classmethod
     def kernel_laplacian(cls, x,y,length=1, const = 1.0):
         return np.exp(-0.5*np.abs(x-y) / length)
     
     @classmethod
-    def kernel_periodic(cls, x,y,length=1, period=1, const = 1.0):
+    def kernel_periodic(cls, x,y,length=1, period=1, const = 1.0, wantgrad = False):
         sin_argument = np.pi*np.abs(x-y)/period
         exp_argument = -2*np.power(np.sin(sin_argument),2)/length
         return const*np.exp(exp_argument)
     
-    @classmethod #maybe update params
-    def generate_kernel(cls, kernel, length=1.0, length2= 1.0, period=1, const= 1.0, const2 = 1.0):
+    @classmethod
+    def kernel_rational_quadratic(cls, x, y, length=1.0, const = 1.0, shape = 1.0, wantgrad=False):
+        sq_dist = np.power(x-y,2)
+        
+        argument = 1+ sq_dist/(2*shape*np.power(length,2))
+        
+        
+        k = (const**2)*np.power(argument, -shape)
+        
+        if wantgrad == False:
+            return k
+        else:
+            gradient = np.zeros(3)
+            gradient[0] = 2*const*np.power(argument, -shape)
+            gradient[1] = (const**2)*np.power(argument, -(shape+1))*sq_dist*np.power(length, -3)
+            
+            multiply_term = (sq_dist/(2*np.power(length,2)*shape))-np.log(argument)
+            
+            gradient[2] = (const**2)*np.power(argument, -shape)*multiply_term
+
+            
+            return k, gradient
+        
+    @classmethod
+    def kernel_whitenoise(cls, x, y, const, wantgrad = False):
+        
+        def k_noise(x,y):
+            if x == y:
+                return np.power(const, 2)
+            else:
+                return 0
+            
+        k = k_noise(x,y)
+        
+        if wantgrad == False:
+            return k
+        else:
+            gradient = np.zeros(1)
+            
+            gradient[0] = k
+            
+            return k, gradient
+        
+        
+        
+    @classmethod
+    def find_arguments(cls,kernel):
+        varnames = kernel.__code__.co_varnames
+        try:
+            kernel_arguments = varnames[varnames.index('y')+1:varnames.index('wantgrad')]
+        except ValueError:
+            raise Exception('kernel function {} not valid', kernel)
+        
+        return kernel_arguments
+        
+        
+    @classmethod
+    def generate_kernel(cls, kernel, **kwargs):
+        
+        kernel_arguments = cls.find_arguments(kernel)
+        dict_arguments = kwargs
+        arglist = tuple(kwargs.keys())
+        
+        assert len(kernel_arguments) == len(arglist)
+        
+        #checking if entries are the same
+        assert not sum([not i in kernel_arguments for i in arglist])
+        
         def wrapper(*args, **kwargs):
-            kwargs.update({"length": length})
-            kwargs.update({"const": const})
-            if kernel == cls.kernel_periodic :
-                kwargs.update({"period": period})
+            for param, paramvalue in dict_arguments.items():
+                kwargs.update({param: paramvalue})
                 
-            if kernel == cls.mix1:
-                kwargs.update({"period": period})
-                kwargs.update({"length2": length2})
-                kwargs.update({"const2": const2})
+#            kwargs.update({"length": length})
+#            kwargs.update({"const": const})
+#            if kernel == cls.kernel_periodic :
+#                kwargs.update({"period": period})
+#            if kernel == cls.kernel_periodic_decay:
+#                kwargs.update({"decay": decay})
+#                kwargs.update({"decay": shape})
                 
             return kernel(*args, **kwargs)
         return wrapper
@@ -114,11 +216,30 @@ class GPR(object):
             - K.shape[0] * 0.5 * np.log(2 * np.pi)
         )
         return logp
-   
+    
+    @staticmethod
+    def grad_logp(K, gradK, thetas, y, R):
+        try:
+            L = np.linalg.cholesky(K)
+            invk = np.linalg.solve(L.transpose(), np.linalg.solve(L, np.eye(len(y))))
+        except np.linalg.LinAlgError:
+            return 0
+        
+        ## TODO: maybe check if gradK and thetas are same length
+        dlogp = np.zeros(len(thetas))
+        for i, theta in enumerate(thetas):
+            dlogp[i] = 0.5 * np.dot(y.T, np.dot(invk, np.dot(gradK[i], invk))) \
+        -0.5* np.trace(np.dot(invk, gradK[i]))
+        
+        return dlogp
+        
+        
+        
     def optimizer(self,*args, **kwargs):
             
         parallel = True
         
+        # TODO: update cancerous wrap with same method as generate_kernel
         def kernel_proxy(f, *args):
             print("hello tehere")
             length, *other = args
@@ -128,9 +249,9 @@ class GPR(object):
             elif len(other) == 2:
                 ker = 1
                 period, const = other
-            elif len(other) == 4:
+            elif len(other) == 10:
                 ker = 2
-                const, length2, period, const2 = other
+                raise Exception("meh")
             else:
                 raise Exception('numero argomenti non valido')
 #                
@@ -194,6 +315,10 @@ class GPR(object):
             best_params.append(lista[index[i]])
                         
         return landscape, best_params
+    
+    # TODO: GRAD_OPTIMIZER
+#    def grad_optimizer(self, kernel, theta0, y, R):
+#        K = 
         
 #%%
 def f1(x):
