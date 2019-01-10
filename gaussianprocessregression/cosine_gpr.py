@@ -70,7 +70,7 @@ f.close()
 #print("best parameters (log-likelihood, noise, length_scale, period, const):",np.round(lml.max(),2),disp_params[0], disp_params[1], disp_params[2], disp_params[3])
 #%% PLOT REGRESSORE
 create_case(x, x_guess, y,
-            kernel= GPR.generate_kernel(GPR.kernel_periodic, length=params[1], period= params[2]),
+            kernel= GPR.generate_kernel(GPR.kernel_periodic, const = 1, length=params[1], period= params[2]),
             R=params[0],
             title = "Parametri Otimizzati - Kernel Periodico, Dati Mancanti",
             save = "periodico_datimancanti")
