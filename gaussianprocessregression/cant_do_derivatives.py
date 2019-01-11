@@ -19,3 +19,11 @@ kernel3 = s6**2*(1+ (x1 -x2)**2 / (2* s8 * s7**2))**(-s8)
 k3der6 = sp.diff(kernel3, s6)
 k3der7 = sp.diff(kernel3, s7)
 k3der8 = sp.diff(kernel3, s8)
+
+c, l, p = sp.symbols('c, l, p')
+
+kernel_periodic = c**2 * sp.exp(-2*sp.sin(sp.pi*(x1 - x2)/p)**2 / l**2)
+kperdiffc = sp.diff(kernel_periodic, c)
+kperdiffl = sp.diff(kernel_periodic, l)
+kperdiffp = sp.diff(kernel_periodic, p)
+#kernel_periodic_simple = c
