@@ -8,6 +8,9 @@ from stl import mesh
 
 import os
 #%%
+
+#NOTA:  la cartella "heatmap_lens" va piazzata nella stessa dir di esecuzione dello script
+
 #conversione heatmap rgb in valori
 def colormap2arr(arr,cmap):    
     gradient=cmap(np.linspace(0.0,1.0,100))
