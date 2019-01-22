@@ -206,20 +206,38 @@ class GPR(object):
         self.mean = []
         self.kernel = kernel if kernel else self.kernel_gaussian
         self.setup_K()
+        self.num_cores = multiprocessing.cpu_count()
 
     @classmethod
-    def calculate_K(cls, x, kernel, R=0):
+    def calculate_K(cls, x, kernel, R=0, parallel = False):
         N = len(x)
         K = np.ones((N, N))
-
-        for i in range(N):
-            for j in range(i + 1, N):
-                cov = kernel(x[i], x[j])
-                K[i][j] = cov
-                K[j][i] = cov
-
+        if parallel != True:
+            for i in range(N):
+                for j in range(i + 1, N):
+                    cov = kernel(x[i], x[j])
+                    K[i][j] = cov
+                    K[j][i] = cov
+        else:
+            num_cores = multiprocessing.cpu_count()
+            print("starting", num_cores, "jobs")
+            #need to compute pairs
+            def compute_pairs(x):
+                N = len(x)
+                for i in range(N):
+                    for j in range(i+1, N):
+                        yield x[i], x[j]
+                       
+            xlist = list(compute_pairs(x))
+            K_list = Parallel(n_jobs = num_cores)(delayed(kernel)(xs[0], xs[1]) for i, xs in enumerate(tqdm(xlist)))
+            K_array  = np.squeeze(K_list)
+            
+            lower_tri_indices = np.tril_indices(N, -1)
+            upper_tri_indices = np.triu_indices(N, 1)
+            K[lower_tri_indices] = K_array
+            K[upper_tri_indices] = K.T[upper_tri_indices]
+            
         K = K + R * np.eye(N)
-
         return K
 
     @classmethod
@@ -344,7 +362,7 @@ class GPR(object):
             for instance in product(*vals):
                 yield instance
 
-        if noiselist != False:
+        if noiselist.any() != False:
             param_dictionary["noise"] = noiselist
 
         cases_keys = tuple(param_dictionary.keys())
