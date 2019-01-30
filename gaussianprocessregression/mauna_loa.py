@@ -1,18 +1,9 @@
-import pymc3 as pm
 import pandas as pd
 import numpy as np
-import theano.tensor as tt
-
-import matplotlib.pylab as plt
-
-from bokeh.plotting import figure, show
-from bokeh.models import BoxAnnotation, Span, Label, Legend
-from bokeh.io import output_notebook
-from bokeh.palettes import brewer
-output_notebook()
 
 import numpy as np
 from matplotlib import pyplot as plt
+
 import seaborn as sns
 sns.set(color_codes = True)
 
@@ -86,19 +77,57 @@ plt.legend([training_data_plot, test_data_plot], ["train", "test"])
 
 
 #%%
-k2 = GPR.generate_kernel(kernel= GPR.kernel_periodic,length=3.126, period = 2*np.pi/0.7, const = 0.001)
-k1 = GPR.generate_kernel(GPR.kernel_gaussian, length=3.127)
 
-k3 = GPR.generate_kernel(kernel=GPR.mix1, length=1, length2 = 2, period = 3, const = 4, const2 =1)
+#using arrays makes me save time in pandas access
 
-def somma_wrap(*args, **kwargs):
-    return k1(args[0], args[1]) +k2(args[0], args[1])
+t_early = data_early['t'].values
+y_early = data_early['y_n'].values
 
-def mixed_kernel(thetas):
-    k1 = GPR.generate_kernel(kernel = GPR.kernel_gaussian, const =thetas[0], length = thetas[1])
-    k2 = GPR.generate_kernel(kernel = GPR.kernel_periodic_decay
+t_later = data_later['t'].values
+y_later = data_later['y_n'].values
 
-create_case(x,x_guess, y, kernel= k3, R = 0.1)
+
+#%% proposed kernel
+
+def comp_kernel(x,y,
+                sigma_1 = 1,
+                sigma_2 = 1,
+                sigma_3 = 1,
+                sigma_4 = 1,
+                sigma_5 = 1,
+                sigma_6 = 1,
+                sigma_7 = 1,
+                sigma_8 = 1,
+                sigma_9 = 1,
+                sigma_10 = 1,
+                sigma_11 = 1,
+                wantgrad = False):
+    
+    
+    #yet to implement gradient on this
+    gaussian_component = GPR.generate_kernel(kernel= GPR.kernel_gaussian,
+                                          length = sigma_2,
+                                          const = sigma_1)
+    periodic_component = GPR.generate_kernel(kernel = GPR.kernel_periodic_decay,
+                                             const = sigma_3,
+                                             decay = sigma_4,
+                                             length = sigma_5)
+    rational_quadratic_component = GPR.generate_kernel(kernel = GPR.kernel_rational_quadratic,
+                                                       const = sigma_6,
+                                                       length = sigma_7,
+                                                       shape = sigma_8)
+    noise_1 = GPR.generate_kernel(kernel = GPR.kernel_whitenoise,
+                                  const = sigma_11)
+    noise_2 = GPR.generate_kernel(kernel = GPR.kernel_gaussian,
+                                  length = sigma_10,
+                                  const = sigma_9)
+    
+    return gaussian_component(x,y) + periodic_component(x,y) + rational_quadratic_component(x,y) + noise_1(x,y) + noise_2(x,y)
+    
+    
+    
+
+create_case(x,x_guess, y, kernel= comp_kernel, R = 0.1)
 
 
 #%%
