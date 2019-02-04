@@ -330,8 +330,12 @@ class GPR(object):
 
         if keys[-1] == "noise":
             paramkeys = keys[:-1]
-            values_to_pass = params[:-1]
-            noise = params[-1]
+            values_to_pass =  []
+            for i in paramkeys:
+                values_to_pass.append(params[i])
+#            values_to_pass = params[:-1]
+#            noise = params[-1]
+            noise = params['noise']
         else:
             noise = 0
 
@@ -363,7 +367,7 @@ class GPR(object):
             for instance in product(*vals):
                 yield instance
 
-        if noiselist.any() != False:
+        if noiselist.any():
             param_dictionary["noise"] = noiselist
 
         cases_keys = tuple(param_dictionary.keys())
@@ -403,7 +407,7 @@ class GPR(object):
 
             for i, case in enumerate(tqdm(all_possible_cases)):
 
-                landscape[i] = self.calc_lml_element(case)
+                landscape[i] = self.calc_lml_element(case, cases_keys)
         #
         ##            for i, item in enumerate(tqdm(list(product(*lists)))):
         ##                K = self.calculate_K(self.x, kernel_proxy(self.kernel,*item[1:]),item[0])
