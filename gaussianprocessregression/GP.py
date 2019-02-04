@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
 
+import warnings 
 sns.set(color_codes=True)
 from itertools import product
 from joblib import Parallel, delayed
@@ -541,8 +542,14 @@ def create_case(
             raise Exception("cannot load {}.gpr file".format(load))
     else:
         gaus = GPR(x, y, kernel, R=R)
-        y_pred = np.vectorize(gaus.predict)(x_guess)
-
+        y_pred = list(np.vectorize(gaus.predict)(x_guess))
+        
+        
+    y_pred[1] = np.abs(y_pred[1])
+        
+    y_pred = np.squeeze(y_pred)
+    
+    
     ax = plt.gca()
     plot_mu, = ax.plot(x_guess, y_pred[0], c="b")
     plt.gca().fill_between(
