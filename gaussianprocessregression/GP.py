@@ -7,13 +7,13 @@ import warnings
 sns.set(color_codes=True)
 from itertools import product
 from joblib import Parallel, delayed
+import functools
+import time
 import multiprocessing
 import pickle
 from scipy.optimize import minimize as fmin
 
 #%%
-
-
 class GPR(object):
 
     # TODO: add kernels
@@ -120,7 +120,7 @@ class GPR(object):
     ):
         sq_dist = np.power(x - y, 2)
 
-        argument = 1 + sq_dist / (2 * shape * np.power(length, 2))
+        argument = 1 + (sq_dist / (2 * shape * np.power(length, 2)))
 
         k = (const ** 2) * np.power(argument, -shape)
 
@@ -394,12 +394,16 @@ class GPR(object):
 
         landscape = np.zeros(len(cases_tuple))
 
+        
         if parallel == True:
+
             num_cores = multiprocessing.cpu_count()
+            
             landscape_list = Parallel(n_jobs=num_cores)(
-                delayed(self.calc_lml_element)(case, cases_keys)
-                for case in tqdm(cases_tuple)
+                delayed(self.calc_lml_element)(cases_tuple[i], cases_keys)
+                for i in tqdm(range(len(cases_tuple)))
             )
+    
             landscape = np.array(landscape_list)
 
         else:
@@ -427,8 +431,10 @@ class GPR(object):
         for i, key in enumerate(param_dictionary.items()):
             #        for i,lista in enumerate(lists):
             best_params.append(key[1][index[i]])
+               
+        best_params_dict = dict(zip(param_dictionary.keys(), best_params))
 
-        return landscape, best_params
+        return landscape, best_params_dict
 
     def grad_optimizer(self, theta0):
         noiseflag = False
@@ -514,7 +520,40 @@ class GPR(object):
 def f1(x):
     return np.cos(0.7 * x).flatten()
 
-
+def predict_plot(x,y,x_guess,y_pred, title=False, save=False, orig_function=False):
+    
+    y_pred[1] = np.abs(y_pred[1])
+    y_pred = np.squeeze(y_pred)
+    
+    ax = plt.gca()
+    plot_mu, = ax.plot(x_guess, y_pred[0], c="b")
+    plt.gca().fill_between(
+        x_guess,
+        y_pred[0] - np.sqrt(y_pred[1]),
+        y_pred[0] + np.sqrt(y_pred[1]),
+        color="lightsteelblue",
+    )
+    if title != False:
+        plt.title(title)
+    plot_misure = ax.scatter(x, y, c="black")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    
+    legend_elements = [plot_mu, plot_misure]
+    legend_labels = ["media processo", "misure"]
+    
+    
+    if orig_function != False:
+        cosine, = ax.plot(x_guess, orig_function(x_guess))
+        legend_elements.append(cosine)
+        legend_labels.append("f(x)")
+    legend_elements = [plot_mu, plot_misure]
+    legend_labels = ["media processo", "misure"]
+    plt.legend(legend_elements, legend_labels, loc=2)
+    if save != False:
+        plt.savefig(save + ".png", bbox_inches="tight")
+    
+    
 def create_case(
     x,
     x_guess,
@@ -527,6 +566,7 @@ def create_case(
     load=False,
     f=f1,
 ):
+    
     if load != False:
         f = open(load + ".gpr", "rb")
         x_loaded, x_guess_loaded, y_loaded, R_loaded, y_pred_loaded = pickle.load(f)
@@ -549,36 +589,14 @@ def create_case(
         y_pred = list(np.vectorize(gaus.predict)(x_guess))
         
         
-    y_pred[1] = np.abs(y_pred[1])
-        
-    y_pred = np.squeeze(y_pred)
+    predict_plot(x, y, x_guess, y_pred, title, save, orig_function)
     
-    
-    ax = plt.gca()
-    plot_mu, = ax.plot(x_guess, y_pred[0], c="b")
-    plt.gca().fill_between(
-        x_guess,
-        y_pred[0] - np.sqrt(y_pred[1]),
-        y_pred[0] + np.sqrt(y_pred[1]),
-        color="lightsteelblue",
-    )
-    if title != False:
-        plt.title(title)
-    plot_misure = ax.scatter(x, y, c="black")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    legend_elements = [plot_mu, plot_misure]
-    legend_labels = ["media processo", "misure"]
-    if orig_function != False:
-        cosine, = ax.plot(x_guess, f(x_guess))
-        legend_elements.append(cosine)
-        legend_labels.append("f(x)")
-    plt.legend(legend_elements, legend_labels, loc=2)
     if save != False:
         f = open(save + ".gpr", "wb")
         pickle.dump([x, x_guess, y, R, y_pred], f)
         f.close()
-        plt.savefig(save + ".png", bbox_inches="tight")
+        
+    return gaus
 
 
 def prior(x, x_guess, kernel, R=0):
