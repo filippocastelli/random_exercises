@@ -39,13 +39,9 @@ X, y = load_mauna_loa_atmospheric_co2()
 ymean = y.mean()
 y = y- ymean
 
+
 X_ = np.linspace(X.min(), X.max()+30, 1000)
 
-
-X = X[:400]
-y = y[:400]
-
-X_ = X_[:400]
 plt.plot(X, y)
 
 
@@ -90,14 +86,14 @@ def comp_kernel(x,y,wantgrad = False):
 def comp_kernel2(x,y,wantgrad = False):
     
     sigma_1 = 1
-    sigma_2 = 10
+    sigma_2 = 67
     sigma_3 = 0.3
     sigma_4 = 90
     sigma_5 = 1.3
-    sigma_6 = 0.1
+    sigma_6 = 0.01
     sigma_7 = 1.2
     sigma_8 = 0.78
-    sigma_9 = 0.2
+    sigma_9 = 0.1
     sigma_10 = 0.133
     sigma_11 = 0
     
@@ -122,24 +118,12 @@ def comp_kernel2(x,y,wantgrad = False):
     
     return gaussian_component(x,y) + periodic_component(x,y) + rational_quadratic_component(x,y) + noise_1(x,y) + noise_2(x,y)
 
-#%%
 #ok non funziona manco per il cazzo
-create_case(X, X_, y, kernel = comp_kernel2, R =0.15)
+gaus_comp2 = create_case(X, X_, y,
+            kernel = comp_kernel2, R =0.13,
+            title = "Dati CO2 Mauna Loa",
+            load = "prova_maunaloa")
 
-
-#%%
-
-create_case(
-    X,
-    X_,
-    y,
-    kernel=GPR.generate_kernel(
-        GPR.kernel_gaussian, const=1, length=10),
-    R = 1,
-    title="Kernel Gaussiano",
-    save="gaussian_maunaloa",
-)
-    
 #%%
 x_red = X[:100]
 y_red = y[:100]
