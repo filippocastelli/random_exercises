@@ -264,23 +264,28 @@ class GPR_reboot(object):
 # =============================================================================
 # PLOTS
 #        staticmethods
-#            >create_figure(title, axlabels)
+#            >create_figure(title, axlabelsm, axlims)
 #            >save_figure(ax,title)
 #        instancemethods
 #            >plot_process(self, mean, var, x_guess, ax)
 #            >plot_measures(self,x,y,ax)
 #            >plot(self, plot_process, plot_measures, title, save, return_ax
-#                  x,y,x_guess, pred_y, var_pred)
+#                  x,y,x_guess, pred_y, var_pred, axlims)
 # =============================================================================
     
     
     @staticmethod
-    def create_figure(title, axlabels = None):
+    def create_figure(title, axlabels = None, axlims = None):
         fig, ax = plt.subplots()
         ax.set_title(title)
         if axlabels is not None:
             ax.set_xlabel(axlabels[0])
             ax.set_ylabel(axlabels[1])
+            
+        if axlims is not None:
+            ax.set_xlim(axlims[0])
+            ax.set_ylim(axlims[1])
+            
         return ax
     
     @staticmethod
@@ -306,13 +311,15 @@ class GPR_reboot(object):
              plot_measures = True,
              title = "Gaussian Process Regression",
              axlabels = None,
+             axlims = None,
              save = False,
              return_ax = False,
              x = None,
              y = None,
              x_guess = None,
              pred_y = None,
-             var_pred = None):
+             var_pred = None,
+             ax = None):
         
         pred_y = pred_y if pred_y is not None else self.pred_y
         var_pred = var_pred if var_pred is not None else self.pred_variance
@@ -320,7 +327,7 @@ class GPR_reboot(object):
         x = x if x is not None else self.x
         y = y if y is not None else self.y
         
-        ax = self.create_figure(title, axlabels)
+        ax = ax if ax is not None else self.create_figure(title, axlabels, axlims)
         
         if plot_process:
             self.plot_process(mean = pred_y,
