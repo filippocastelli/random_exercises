@@ -1,5 +1,13 @@
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb 13 14:26:36 2019
+
+@author: filippo.castelli4
+"""
+
+
+import matplotlib as mpl
 import seaborn as sns
 from tqdm import tqdm
 
@@ -7,28 +15,93 @@ import warnings
 sns.set(color_codes=True)
 from itertools import product
 from joblib import Parallel, delayed
-import functools
-import time
 import multiprocessing
 import pickle
 from scipy.optimize import minimize as fmin
 
 #%%
 class GPR(object):
+    
+         
+    def __init__(self, x, y, kernel=None, R=0):
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.N = len(self.x)
+        self.R = R
+        
+        self.K = []
+        self.mean = []
+        self.kernel = kernel if kernel else self.kernel_gaussian
+        self.setup_K()
+        self.num_cores = multiprocessing.cpu_count()
 
     # TODO: add kernels
-
     @classmethod
-    def mix1(cls, x, y, length=1.0, length2=1.0, period=1, const=1.0, const2=1.0):
-        return cls.kernel_gaussian(x, y, length, const) + const2 * cls.kernel_periodic(
-            x, y, length2, period
-        )
+    def kernel_mix(cls, x, y,
+                        sigma_1 = 1,
+                        sigma_2 = 67,
+                        sigma_3 = 0.05,
+                        sigma_4 = 90,
+                        sigma_5 = 1.3,
+                        sigma_6 = 0.,
+                        sigma_7 = 1.2,
+                        sigma_8 = 0.78,
+                        sigma_9 = 0.003,
+                        sigma_10 = 0.133,
+                        sigma_11 = 0.,
+                        wantgrad = False):
+    
+        #yet to implement gradient on this
+        
+        
+        gaussian_component = cls.kernel_gaussian(x,y,
+                                                 length = sigma_2,
+                                                 const = sigma_1)
+#        periodic_component = cls.kernel_periodic_decay(x,y,
+#                                                       length = sigma_5,
+#                                                       const = sigma_3,
+#                                                       decay = sigma_4)
+        
+        
+        periodic_1 = cls.kernel_periodic(x,y,
+                                         length = sigma_5,
+                                         period = 1,
+                                         const = sigma_3)
+        
+        periodic_2 = cls.kernel_gaussian(x,y,
+                                         length = sigma_4,
+                                         const = 1)
+        
+        periodic_component = periodic_2*periodic_1
+        
+        rational_quadratic_component = cls.kernel_rational_quadratic(x, y,
+                                                                     const = sigma_6,
+                                                                     length = sigma_7,
+                                                                     shape = sigma_8)
+        noise_1 = cls.kernel_whitenoise(x, y,
+                                        const = sigma_11)
+#        noise_2 = cls.kernel_gaussian(x,y,
+#                                      const = sigma_9,
+#                                      length = sigma_10)
+
+        
+        
+        k = gaussian_component + periodic_component + rational_quadratic_component + noise_1
+        
+        
+        if wantgrad == False:
+            return k
+        else:
+            gradient = np.zeros(11)
+            return gradient
+        
 
     @classmethod
     def kernel_gaussian(cls, x, y, length=1.0, const=1.0, wantgrad=False):
 
         sq_dist = np.power(x - y, 2)
-        exponential = np.exp(-0.5 * sq_dist / length ** 2)
+        exponential = np.exp(-0.5 * sq_dist / (length ** 2))
         k = (const ** 2) * exponential
         if wantgrad == False:
             return k
@@ -48,7 +121,7 @@ class GPR(object):
 
         period = 1
 
-        exp_arg_1 = -0.5 * sq_dist / decay ** 2
+        exp_arg_1 = -0.5 * sq_dist / (decay ** 2)
 
         squared_sin = np.power(np.sin(np.pi * (x - y) / period), 2)
         exp_arg_2 = -2 * squared_sin / (length ** 2)
@@ -67,24 +140,13 @@ class GPR(object):
             )
 
             return gradient
-
-    #    @classmethod
-    #    def kernel_laplacian(cls, x,y,length=1, const = 1.0):
-    #        return np.exp(-0.5*np.abs(x-y) / length)
-    #
-    #    # TODO: define gradient for periodic
-    #    @classmethod
-    #    def kernel_periodic_old(cls, x,y,length=1, period=1, const = 1.0, wantgrad = False):
-    #        sin_argument = np.pi*np.abs(x-y)/period
-    #        exp_argument = -2*np.power(np.sin(sin_argument),2)/length
-    #        return const*np.exp(exp_argument)
-
+        
     @classmethod
     def kernel_periodic(cls, x, y, length=1, period=1, const=1, wantgrad=False):
         # gradient is always given in [const, period, length] order
 
-        sin_argument = np.pi * (x - y) / period
-        exp_argument = -2 * np.power(np.sin(sin_argument), 2) / np.power(length, 2)
+        sin_argument = np.pi * np.abs(x - y) / period
+        exp_argument = -2 * np.power(np.sin(sin_argument) / length, 2)
 
         k = np.power(const, 2) * np.exp(exp_argument)
 
@@ -166,15 +228,18 @@ class GPR(object):
     @classmethod
     def find_arguments(cls, kernel):
         varnames = kernel.__code__.co_varnames
+
         try:
             kernel_arguments = varnames[
                 varnames.index("y") + 1 : varnames.index("wantgrad")
             ]
         except ValueError:
-            raise Exception("kernel function {} not valid", kernel)
+            print(varnames)
+            print("hey non torna")
+#            raise Exception("kernel function {} not valid", kernel)
 
         return kernel_arguments
-
+    
     @classmethod
     def generate_kernel(cls, kernel, wantgrad=False, **kwargs):
 
@@ -195,19 +260,6 @@ class GPR(object):
             return kernel(*args, **kwargs)
 
         return wrapper
-
-    def __init__(self, x, y, kernel=None, R=0):
-        super().__init__()
-        self.x = x
-        self.y = y
-        self.N = len(self.x)
-        self.R = R
-
-        self.K = []
-        self.mean = []
-        self.kernel = kernel if kernel else self.kernel_gaussian
-        self.setup_K()
-        self.num_cores = multiprocessing.cpu_count()
 
     @classmethod
     def calculate_K(cls, x, kernel, R=0, parallel = False):
@@ -287,6 +339,12 @@ class GPR(object):
         K_expt = cov + self.R - (K_star.T * np.mat(self.K).I) * K_star
 
         return m_expt, K_expt
+    
+    def get_predictions(self, x_guess):
+       y_predicted = list(np.vectorize(self.predict)(x_guess))
+       
+       return y_predicted
+        
 
     @staticmethod
     def get_probability_old(K, y, R):
@@ -330,14 +388,17 @@ class GPR(object):
 
         if keys[-1] == "noise":
             paramkeys = keys[:-1]
-            values_to_pass =  []
-            for i in paramkeys:
-                values_to_pass.append(params[i])
-#            values_to_pass = params[:-1]
-#            noise = params[-1]
             noise = params['noise']
         else:
+            paramkeys = keys
             noise = 0
+        values_to_pass =  []
+        for i in paramkeys:
+            values_to_pass.append(params[i])
+#            values_to_pass = params[:-1]
+#            noise = params[-1]
+            
+
 
         params_to_pass = dict(zip(paramkeys, values_to_pass))
 
@@ -367,8 +428,9 @@ class GPR(object):
             for instance in product(*vals):
                 yield instance
 
-        if noiselist.any():
-            param_dictionary["noise"] = noiselist
+        if type(noiselist) != bool:
+            if noiselist.any():
+                param_dictionary["noise"] = noiselist
 
         cases_keys = tuple(param_dictionary.keys())
         cases_tuple = tuple(product_from_dict(**param_dictionary))
@@ -412,11 +474,6 @@ class GPR(object):
             for i, case in enumerate(tqdm(all_possible_cases)):
 
                 landscape[i] = self.calc_lml_element(case, cases_keys)
-        #
-        ##            for i, item in enumerate(tqdm(list(product(*lists)))):
-        ##                K = self.calculate_K(self.x, kernel_proxy(self.kernel,*item[1:]),item[0])
-        ##                landscape[i]= self.get_probability(K, self.y, item[0])
-        #                landscape[i] = self.calc_lml_element(kernel_proxy, i)
 
         forma = []
         for key, arg in param_dictionary.items():
@@ -520,7 +577,8 @@ class GPR(object):
 def f1(x):
     return np.cos(0.7 * x).flatten()
 
-def predict_plot(x,y,x_guess,y_pred, title=False, save=False, orig_function=False):
+def predict_plot(x,y,x_guess,y_pred, title=False, save=False, orig_function=False,
+                 axlabels = False):
     
     y_pred[1] = np.abs(y_pred[1])
     y_pred = np.squeeze(y_pred)
@@ -536,8 +594,12 @@ def predict_plot(x,y,x_guess,y_pred, title=False, save=False, orig_function=Fals
     if title != False:
         plt.title(title)
     plot_misure = ax.scatter(x, y, c="black")
-    plt.xlabel("x")
-    plt.ylabel("y")
+    if axlabels == False:
+        plt.xlabel("x")
+        plt.ylabel("y")
+    else:
+        plt.xlabel(axlabels[0])
+        plt.xlabel(axlabels[1])
     
     legend_elements = [plot_mu, plot_misure]
     legend_labels = ["media processo", "misure"]
@@ -565,8 +627,11 @@ def create_case(
     orig_function=False,
     load=False,
     f=f1,
+    return_regressor = False,
+    return_predictions = False,
+    draw_plot = True,
 ):
-    
+    outs = []
     if load != False:
         f = open(load + ".gpr", "rb")
         x_loaded, x_guess_loaded, y_loaded, R_loaded, y_pred_loaded = pickle.load(f)
@@ -586,18 +651,24 @@ def create_case(
             raise Exception("cannot load {}.gpr file".format(load))
     else:
         gaus = GPR(x, y, kernel, R=R)
-        y_pred = list(np.vectorize(gaus.predict)(x_guess))
+        y_pred = gaus.get_predictions(x_guess)
         
-        
-    predict_plot(x, y, x_guess, y_pred, title, save, orig_function)
+    if draw_plot == True: 
+        predict_plot(x, y, x_guess, y_pred, title, save, orig_function)
     
     if save != False:
         f = open(save + ".gpr", "wb")
         pickle.dump([x, x_guess, y, R, y_pred], f)
         f.close()
         
-    return gaus
+    if return_regressor != False:
+        outs.append(gaus)
+        
+    if return_predictions != False:
+        outs.append(y_pred)
 
+    if outs != []:
+        return outs
 
 def prior(x, x_guess, kernel, R=0):
     n = len(x_guess)
@@ -728,3 +799,44 @@ def gen_data(
 
     if save != False:
         plt.savefig(save + ".png", bbox_inches="tight")
+
+
+def modify_legend(**kwargs):
+
+    l = mpl.pyplot.gca().legend_
+
+    defaults = dict(
+        loc = l._loc,
+        numpoints = l.numpoints,
+        markerscale = l.markerscale,
+        scatterpoints = l.scatterpoints,
+        scatteryoffsets = l._scatteryoffsets,
+        prop = l.prop,
+        # fontsize = None,
+        borderpad = l.borderpad,
+        labelspacing = l.labelspacing,
+        handlelength = l.handlelength,
+        handleheight = l.handleheight,
+        handletextpad = l.handletextpad,
+        borderaxespad = l.borderaxespad,
+        columnspacing = l.columnspacing,
+        ncol = l._ncol,
+        mode = l._mode,
+        fancybox = type(l.legendPatch.get_boxstyle())==mpl.patches.BoxStyle.Round,
+        shadow = l.shadow,
+        title = l.get_title().get_text() if l._legend_title_box.get_visible() else None,
+        framealpha = l.get_frame().get_alpha(),
+        bbox_to_anchor = l.get_bbox_to_anchor()._bbox,
+        bbox_transform = l.get_bbox_to_anchor()._transform,
+        frameon = l._drawFrame,
+        handler_map = l._custom_handler_map,
+    )
+
+    if "fontsize" in kwargs and "prop" not in kwargs:
+        defaults["prop"]
+        
+    #in python3 questo non funziona perchè i dict_items sono oggetti a parte e non liste
+    #    mpl.pyplot.legend(**dict(defaults.items() + kwargs.items()))
+    defcopy = defaults.copy()
+    defcopy.update(kwargs)
+    mpl.pyplot.legend(**defcopy)

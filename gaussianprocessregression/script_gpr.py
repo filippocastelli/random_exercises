@@ -50,10 +50,10 @@ create_case(x = x,
             y= y,
             x_guess = x_guess,
             kernel = GPR.kernel_gaussian,
-            R = 0.001,
+            R = 0.000,
             title = "GPR",
             save = "GPR",
-            orig_function = True)
+            orig_function = f1)
 
 cosine = ax.plot(x_guess, f1(x_guess), c="red")
 
@@ -104,10 +104,11 @@ plt.savefig('length_plot.png', bbox_inches='tight')
 
 gaus = GPR(x, y)
 
+
 paramlist = {'length': np.linspace(0.1,100,100),
              'const': np.linspace(0.1, 10, 10)}
 
-landscape, best_params = gaus.optimizer(param_dictionary=paramlist, noiselist = np.linspace(0.1,10,10))
+landscape, best_params = gaus.optimizer(param_dictionary=paramlist, noiselist = np.linspace(0.1,10,10), parallel = False)
 
 
 #%%

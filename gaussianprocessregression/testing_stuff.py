@@ -47,15 +47,17 @@ gaus_periodic = GPR(x=x, y=y, kernel=GPR.kernel_periodic)
 gaus2 = GPR(x=x, y=y, kernel=GPR.kernel_periodic)
 
 #%%
-optim = False
+optim = True
 R_list = np.linspace(0.01, 0.2, 10)
 L_list = np.linspace(0.1, 10, 10)
 P_list = np.linspace(4, 9, 10)
 C_list = [1]
 
-param_dict = {"const": C_list, "period": P_list, "length": L_list, "noise": R_list}
+param_dict = {"const": C_list, "period": P_list, "length": L_list}
 if optim == True:
-    lml, pms = gaus2.optimizer(param_dict)
+#    lml, pms = gaus2.optimizer(param_dict)
+    
+    lml, optim_theta = gaus2.optimizer(param_dict, noiselist = R_list, parallel = False)
 
 #%%
 optim = True
@@ -75,9 +77,9 @@ create_case(
     x_guess,
     y,
     kernel=GPR.generate_kernel(
-        GPR.kernel_periodic, const=optim_theta[0], period=optim_theta[1], length=optim_theta[2]
+        GPR.kernel_periodic, const=optim_theta['const'], period=optim_theta['period'], length=optim_theta['length']
     ),
-    R=optim_theta[3],
+    R=optim_theta['noise'],
     title="Parametri Otimizzati - Kernel Periodico, Dati Mancanti",
     save="periodico_datimancanti",
 )
