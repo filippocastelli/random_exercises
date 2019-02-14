@@ -11,6 +11,7 @@ from joblib import Parallel, delayed
 import multiprocessing
 import pickle
 from scipy.optimize import minimize as fmin
+from scipy.optimize import brute as brute_optim
 
 
 #%%
@@ -45,7 +46,8 @@ class GPR_reboot(object):
         else:
             self.calc_kernel_matrices()
             self.kernel_setup()
-
+            
+        self.kernel_arguments = self.find_arguments(self.kernel)
 # =============================================================================
 #  KERNELS:
 #        # SHARED METHODS:
@@ -121,6 +123,14 @@ class GPR_reboot(object):
         assert self.params != {}, "Kernel parameters not set!"
         self.wrapped_kernel = self.wrap_kernel(self.kernel, **self.params)
         
+    def update_params(self, newparams_dict):
+        newparams_names = tuple(newparams_dict.keys())
+        assert len(self.kernel_arguments) == len(newparams_names), "wrong number of parameters for kernel!"
+        assert not sum([not i in newparams_names for i in self.kernel_arguments]), "you're trying to update a different list of parameters"
+        
+        self.params = newparams_dict
+        self.kernel_setup()
+        self.calc_kernel_matrices()
         
 # =============================================================================
 #     KERNEL FUNCTIONS
@@ -218,22 +228,28 @@ class GPR_reboot(object):
 # =============================================================================
 # PREDICTIONS
 #        staticmethods
-#        >calc_logp(alpha, L, y)ù
+#            >calc_logp(alpha, L, y)ù
+#            > get_L_alpha(K,y)
 #        instancemethods
-#        >calc_logp(self)
+#            >calc_logp(self)
 # =============================================================================
     @staticmethod
     def calc_logp(alpha, L, y):
         logp = -0.5*np.dot(y.T,alpha) - np.trace(L) - 0.5*len(y)*np.log(2*np.pi)
         return logp
         
+    @staticmethod
+    def get_L_alpha(K,y):
+        L = np.linalg.cholesky(K)
+        alpha = np.linalg.solve(L.T, np.linalg.solve(L, y))
+        
+        return L, alpha
+    
     def predict(self):
         
         K_noise = self.K + self.R*np.eye(self.N)
         
-        L = np.linalg.cholesky(K_noise)
-        
-        alpha = np.linalg.solve(L.T, np.linalg.solve(L, self.y))
+        L, alpha = self.get_L_alpha(K_noise, self.y)
         
         self.logp = self.calc_logp(alpha, L, self.y)
         
@@ -274,7 +290,7 @@ class GPR_reboot(object):
 
     def plot_process(self,mean, var, x_guess, ax):
         
-        std_dev = np.sqrt(var)
+        std_dev = np.sqrt(np.sqrt(var**2))
         ax.plot(x_guess, mean, label = 'media_processo')
         ax.fill_between(x_guess,
                         mean - std_dev,
@@ -323,5 +339,69 @@ class GPR_reboot(object):
         ax.legend()
         if return_ax:
             return ax
+        
+# =============================================================================
+#  OPTIMIZATION       
+#            instancemethods
+#                > optimizer(self, ranges_dict, Ns, output_grid)
+# =============================================================================
+
+    # > OPTIMIZER
+    # at the moment is a simple brute force optimizer
+    
+    #TODO: implement a gradient optimizer
+    def optimizer(self,
+                  mode = 'brute',
+                  ranges_dict = None,
+                  Ns = 100,
+                  output_grid = False):
+        
+        param_names = tuple(ranges_dict.keys())
+        param_ranges = tuple(ranges_dict.values())
+        
+        modes = ['brute']
+        assert mode in modes, "please select a valid mode for the optimizer, choose between: {}".format(*modes)
+        returns = []
+
+
+        
+        #NOT THE MOST EFFICIENT THING EVER
+        def logp(x, *args):
+            params = x
+            param_names = args
+            
+            param_dict = dict(zip(param_names, params))
+            w_kernel = self.wrap_kernel(self.kernel, **param_dict)
+            try:
+                K = w_kernel(self.x, self.x)
+                L, alpha = self.get_L_alpha(K,self.y)
+                logp = self.calc_logp(alpha, L , self.y)
+            except np.linalg.LinAlgError: 
+                logp = -np.inf
             
             
+            return -logp
+            
+        
+        if mode == 'brute':
+            x0, fval, grid, Jout = brute_optim(func = logp,
+                                               ranges = param_ranges,
+                                               args = (param_names),
+                                               Ns = Ns,
+                                               full_output = True,
+                                               disp = True)
+        
+
+            optim_params = dict(zip(param_names, x0))
+            returns.append(optim_params)
+            returns.append(-fval)
+            
+            if output_grid:
+                returns.append(grid)
+                returns.append(Jout)
+            
+            
+        return returns
+        
+        
+        
