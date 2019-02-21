@@ -197,8 +197,8 @@ class GPR_reboot(object):
         returns = []
 
         dist = cls.difference_mat(data1, data2)
-        sin_argument = (np.pi / period) * dist / np.square(length)
-        squared_sin = np.square(np.sin(sin_argument))
+        sin_argument = (np.pi / period) * dist 
+        squared_sin = np.square(np.sin(sin_argument)/ np.square(length))
         exponential = np.exp(-2 * squared_sin)
         k = np.square(const) * exponential
         returns.append(k)
@@ -283,7 +283,7 @@ class GPR_reboot(object):
         returns = []
 
         gaussian_component, *grad_gaussiancomponent = cls.gaussian_kernel(
-            data1=data1, data2=data2, length=RBF_length, const=RBF_const, wantgrad=True
+            data1=data1, data2=data2, length=RBF_length, const=RBF_const, wantgrad=wantgrad
         )
 
         periodic_component0, *grad_periodic_component0 = cls.gaussian_kernel(
@@ -320,12 +320,10 @@ class GPR_reboot(object):
             wantgrad=wantgrad,
         )
 
-        k = (
-            gaussian_component
-            + periodic_component0 * periodic_component1
-            + rational_quadratic_component
-            + noise_component
-        )
+        k = gaussian_component
+#            + periodic_component0 * periodic_component1
+#            + rational_quadratic_component
+#            + noise_component
 
         returns.append(k)
 
@@ -344,6 +342,62 @@ class GPR_reboot(object):
             returns.append(grads)
             
         return np.squeeze(returns)
+    
+    @classmethod
+    def mauna_loa_example_kernel2(
+        cls,
+        data1,
+        data2,
+        RBF_const=1,
+        RBF_length=1,
+        RBFperiodic_const=1,
+        RBFperiodic_length=1,
+        PERIODIC_length=1,
+        RADQUAD_const=1,
+        RADQUAD_length=1,
+        RADQUAD_shape=1,
+        RBFnoise_length=1,
+        RBFnoise_const=1,
+        wantgrad=False,
+    ):
+        
+        gaussian_component = cls.gaussian_kernel(data1 = data1,
+                                                 data2 = data2,
+                                                 length = RBF_length,
+                                                 const = RBF_const,
+                                                 wantgrad = False)
+        
+        periodic_component1 = cls.gaussian_kernel(data1 = data1,
+                                                 data2 = data2,
+                                                 const = RBFperiodic_const,
+                                                 length = RBFperiodic_length,
+                                                 wantgrad = False)
+        
+        periodic_component2 = cls.periodic_kernel(data1 = data1,
+                                                  data2 = data2,
+                                                  const = 1,
+                                                  period = 1,
+                                                  length = PERIODIC_length,
+                                                  wantgrad = False)
+        
+        rational_quadratic = cls.rational_quadratic(data1 = data1,
+                                                    data2 = data2,
+                                                    const = RADQUAD_const,
+                                                    length = RADQUAD_length,
+                                                    alpha = RADQUAD_shape,
+                                                    wantgrad = False)
+        
+        noise_component = cls.gaussian_kernel(data1 = data1,
+                                              data2 = data2,
+                                              const = RBFnoise_const,
+                                              length = RBFnoise_length,
+                                              wantgrad = False)
+        
+        k = gaussian_component + np.multiply(periodic_component1, periodic_component2) + rational_quadratic + noise_component
+        
+        return k
+    
+    
 
     # =============================================================================
     # K, K*, K** CALCULATIONS
