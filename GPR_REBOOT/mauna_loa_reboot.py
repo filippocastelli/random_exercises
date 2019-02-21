@@ -47,7 +47,7 @@ y = y_full[:-cutoff]
 X_test = X_full[-cutoff :]
 y_test = y_full[-cutoff :]
 
-X_ = np.linspace(X_full.min(), X_full.max(), 1000)
+X_ = np.linspace(X_full.min(), X_full.max() + 20, 1000)
 plt.figure()
 
 plt.title("Dati concentrazione CO2 Mauna Loa")
@@ -125,37 +125,25 @@ if salta != True:
 
 #%%
 model_params = {
-'RBF_const': 66,
-'RBF_length':67,
+'RBF_const': 67,
+'RBF_length':90,
 'RBFperiodic_const':2.4,
-'RBFperiodic_length':90,
+'RBFperiodic_length':100,
 'PERIODIC_length':1.3,
-'RADQUAD_const':0.1, 
+'RADQUAD_const':0.66, 
 'RADQUAD_length':1.2,
 'RADQUAD_shape':0.78,
-'RBFnoise_length':0.13,
-'RBFnoise_const':0.19}
-
-model_params_sklearn = {
-'RBF_const':22.21,
-'RBF_length':23.5,
-'RBFperiodic_const':3.47,
-'RBFperiodic_length':147,
-'PERIODIC_length':1.6,
-'RADQUAD_const':0.,
-'RADQUAD_length':1e05,
-'RADQUAD_shape':1,
-'RBFnoise_length':0.123,
-'RBFnoise_const':0.198}
-
+'RBFnoise_length':1.33,
+'RBFnoise_const':0.18}
 
 gpr = GPR_reboot(x = X,
                  y = y,
                  x_guess = X_,
-                 kernel = GPR_reboot.mauna_loa_example_kernel,
-                 kernel_params = model_params_sklearn,
+                 kernel = GPR_reboot.mauna_loa_example_kernel2,
+                 kernel_params = model_params,
                  normalize_y = True,
-                 R = 0.1)
+                 R = 0.19)
+
 
 gpr.predict()
 
