@@ -599,6 +599,47 @@ class GPR_reboot(object):
         var_pred=None,
         ax=None,
     ):
+        """Function for plotting stuff
+
+    Parameters
+    ----------
+    plot_process : bool (True)
+        Enables plotting of the process after regression
+    plot_measures : bool (True)
+        Enables scatterplot of the measure points
+    title : str ("Gaussian Process Regression")
+        Sets the title of the plot
+    axlabels : list of str (None)
+        Labels for x and y axes
+    axlims : list of tuples (None)
+        Limits for x and y axes
+    save : str (False)
+        Filename for plot saving
+    return_ax : bool (False)
+        Returns the axes for plot
+    ax: matplotlib ax (None)
+        Uses an ax type for input, useful for plot integration
+    x : numpy array (None)
+        Explictly set measure x data
+    y : numpy array (None)
+        Explicitly set measure y data
+    x_guess : numpy array (None)
+        Explicitly set prediction points
+    pred_y : numpy array (None)
+        Explicitly set predictive data
+    var_pred : numpy array (None)
+        Explicitly set predictive variances
+    y : numpy array (None)
+        Explicitly set measure y data
+    print_cols : bool, optional
+        A flag used to print the columns to the console (default is
+        False)
+
+    Returns
+    -------
+    ax : matplotlib ax
+        If return_ax is enabled returns ax for the plot
+    """
 
         pred_y = pred_y if pred_y is not None else self.pred_y
         var_pred = var_pred if var_pred is not None else self.pred_variance
