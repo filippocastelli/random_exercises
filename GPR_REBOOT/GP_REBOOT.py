@@ -540,18 +540,22 @@ class GPR_reboot(object):
     # =============================================================================
     # PLOTS
     #        staticmethods
-    #            >create_figure(title, axlabelsm, axlims)
+    #            >create_figure(title, axlabelsm, axlims, figsize)
     #            >save_figure(ax,title)
     #        instancemethods
     #            >plot_process(self, mean, var, x_guess, ax)
     #            >plot_measures(self,x,y,ax)
     #            >plot(self, plot_process, plot_measures, title, save, return_ax
-    #                  x,y,x_guess, pred_y, var_pred, axlims)
+    #                  x,y,x_guess, pred_y, var_pred, axlims, figsize)
     # =============================================================================
 
     @staticmethod
-    def create_figure(title, axlabels=None, axlims=None):
+    def create_figure(title, axlabels=None, axlims=None, figsize = None):
         fig, ax = plt.subplots()
+        if figsize is not None:
+            fig.set_figheight(figsize[1])
+            fig.set_figwidth(figsize[0])
+            
         ax.set_title(title)
         if axlabels is not None:
             ax.set_xlabel(axlabels[0])
@@ -591,6 +595,7 @@ class GPR_reboot(object):
         axlabels=None,
         axlims=None,
         save=False,
+        figsize = None,
         return_ax=False,
         x=None,
         y=None,
@@ -615,6 +620,8 @@ class GPR_reboot(object):
         Limits for x and y axes
     save : str (False)
         Filename for plot saving
+    figsize : list (None)
+        Sets figure size
     return_ax : bool (False)
         Returns the axes for plot
     ax: matplotlib ax (None)
@@ -647,7 +654,7 @@ class GPR_reboot(object):
         x = x if x is not None else self.x
         y = y if y is not None else self.y_input
 
-        ax = ax if ax is not None else self.create_figure(title, axlabels, axlims)
+        ax = ax if ax is not None else self.create_figure(title, axlabels, axlims, figsize)
 
         if plot_process:
             self.plot_process(mean=pred_y, var=var_pred, x_guess=x_guess, ax=ax)
