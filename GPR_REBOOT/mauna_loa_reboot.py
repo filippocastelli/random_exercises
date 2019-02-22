@@ -123,6 +123,7 @@ if salta != True:
     plt.tight_layout()
     plt.show()
 
+
 #%%
 model_params = {
 'RBF_const': 67,
@@ -147,7 +148,16 @@ gpr = GPR_reboot(x = X,
 
 gpr.predict()
 
-gpr.plot()
-
-
 #%%
+gpr.plot(title = "Gaussian Process Regression, dati Mauna Loa",
+         axlabels = ["anno [yr]", "concentrazione CO2 [ppmv]"],
+         save = "mauna_loa_regression",
+         return_ax = True,
+         figsize = [20,10])
+#%%
+ax = gpr.plot(title = "Gaussian Process Regression, Dettaglio",
+         axlabels = ["anno [yr]", "concentrazione CO2 [ppmv]"],
+         save = "mauna_loa_prediction_detail",
+         return_ax = True,
+         figsize = [20,10])
+ax.scatter(X_test, y_test)
