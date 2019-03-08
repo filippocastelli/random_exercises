@@ -457,3 +457,34 @@ plt.legend(loc='upper right')
 plt.title('Training and Validation Loss')
 
 plt.show()
+
+
+#%%
+## Alternatively, load the weights directly: model.load_weights(save_model_path)
+#model = models.load_model(save_model_path, custom_objects={'bce_dice_loss': bce_dice_loss,
+#                                                           'dice_loss': dice_loss})
+
+
+# Let's visualize some of the outputs 
+data_aug_iter = val_ds.make_one_shot_iterator()
+next_element = data_aug_iter.get_next()
+
+# Running next element in our graph will produce a batch of images
+plt.figure(figsize=(10, 20))
+for i in range(5):
+  batch_of_imgs, label = tf.keras.backend.get_session().run(next_element)
+  img = batch_of_imgs[0]
+  predicted_label = model.predict(batch_of_imgs)[0]
+
+  plt.subplot(5, 3, 3 * i + 1)
+  plt.imshow(img)
+  plt.title("Input image")
+  
+  plt.subplot(5, 3, 3 * i + 2)
+  plt.imshow(label[0, :, :, 0])
+  plt.title("Actual Mask")
+  plt.subplot(5, 3, 3 * i + 3)
+  plt.imshow(predicted_label[:, :, 0])
+  plt.title("Predicted Mask")
+plt.suptitle("Examples of Input Image, Label, and Prediction")
+plt.show()
