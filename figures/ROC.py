@@ -146,6 +146,8 @@ def plot_roc(
     ax0 = fig.add_subplot(1, 2, 2)
     ax0.set_xlim([-0.01, 1])
     ax0.set_ylim([0, 1.01])
+    ax0.set_xlabel("FPR")
+    ax0.set_ylabel("TPR)")
     ax0.plot(x, y, label="ROC", linewidth=linewidth)
     if case != "linear":
         ax0.plot(x, x, "--", label="indecisive classifier ROC")
