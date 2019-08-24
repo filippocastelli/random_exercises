@@ -156,7 +156,51 @@ def plot_roc(
     ax0.set_title("ROC Curve: {}".format(title))
     plt.savefig(savename)
 
+def plot_pr(
+    case="good",
+    figsize=(7, 7),
+    title="Good Classifier",
+    savename="roc_good",
+    param=0.1,
+    legendloc=2,
+    figure=None,
+    linewidth=2,
+    precision_limit = 0.5,
+):
 
+    x = np.linspace(0.00001, 1, 1000)
+
+    # y = (1- (1-x)**2) + (1- np.sqrt(x))
+    y_good = 1 - (1 - x ** (1 - param)) * (1 - np.sqrt(x))
+    y_good = y_good - y_good.min()
+    y_good = y_good / y_good.max()
+    # y = (np.log(x) -1)
+    # y = (y - y.min())/(-y.min())
+    y_good = y_good[::-1]*(1-precision_limit) + precision_limit
+
+    y_worst = np.ones_like(x)*precision_limit
+
+    y_ideal = np.ones_like(x)
+    y_ideal[-1] = precision_limit
+
+    if figure is None:
+        fig = plt.figure(figsize=figsize)
+        ax0 = fig.add_subplot(1, 1, 1)
+    else:
+        fig = figure
+        ax0 = fig.add_subplot(1, 2, 2)
+    ax0.set_xlim([0, 1])
+    ax0.set_ylim([-0.01, 1.01])
+    ax0.set_xlabel("Recall")
+    ax0.set_ylabel("Precision")
+
+    ax0.plot(x, y_good, label="good classifier", linewidth=linewidth)
+    ax0.plot(x, y_ideal, label="ideal classifier", linewidth = linewidth)
+    ax0.plot(x, y_worst, "--", label="worst classifier")
+
+    ax0.legend(loc=legendloc)
+    ax0.set_title("PR Curve")
+    plt.savefig(savename)
 #%%
 
 figsize = (20, 5)
@@ -215,3 +259,7 @@ fig_indecisive = plot_dist(
 )
 
 plot_roc(figure=fig_indecisive, case="linear", title=title, savename="roc_indecisive")
+
+#%%
+
+plot_pr(case="good", savename="pr_good", legendloc = 1, figsize = (10,5), precision_limit = 0.2)
